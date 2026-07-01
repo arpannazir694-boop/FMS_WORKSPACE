@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FMS Workspace — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <!--
+    FOR GOOGLE APPS SCRIPT: Replace with <?!= include('login_style'); ?>
+    FOR STANDALONE USE: keep this tag as-is.
+  -->
+  <link rel="stylesheet" href="login.css" />
+</head>
+<body>
+
+<!-- Page background blobs -->
+<div class="page-bg">
+  <div class="dot-grid-tr"></div>
+  <div class="dot-grid-bl"></div>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-icon-wrap">
+    <span class="material-icons-round">check</span>
+  </div>
+  <div class="success-title">Login Successful</div>
+  <div class="success-sub">Redirecting to FMS Form…</div>
+</div>
+
+<div class="forgot-modal" id="forgot-modal" aria-hidden="true">
+  <div class="forgot-modal-card" role="dialog" aria-modal="true" aria-labelledby="forgot-modal-title">
+    <button type="button" class="forgot-modal-close" id="forgot-modal-close" aria-label="Close">
+      <span class="material-icons-round">close</span>
+    </button>
+    <div class="forgot-modal-icon">
+      <span class="material-icons-round">admin_panel_settings</span>
+    </div>
+    <h3 id="forgot-modal-title">Password Help</h3>
+    <p>For password reset or account access, please contact your Admin.</p>
+    <div class="forgot-modal-note">
+      <span class="material-icons-round">info</span>
+      <span>Admin will verify your identity and help you regain access.</span>
+    </div>
+    <button type="button" class="forgot-modal-action" id="forgot-modal-action">Okay, Got It</button>
+  </div>
+</div>
+
+<!-- Main wrapper -->
+<div class="login-wrapper">
+  <div class="login-card">
+
+    <!-- ================================================================ -->
+    <!-- LEFT — Brand Panel                                               -->
+    <!-- ================================================================ -->
+    <div class="brand-panel">
+
+      <!-- Decorative waves (SVG) -->
+      <svg class="brand-waves" viewBox="0 0 310 200" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M-20 120 Q60 80 140 110 Q220 140 310 100 L310 200 L-20 200 Z" fill="white"/>
+        <path d="M-20 140 Q80 100 160 130 Q240 160 310 125 L310 200 L-20 200 Z" fill="white" opacity=".5"/>
+      </svg>
+
+      <!-- Top: icon + name -->
+      <div class="brand-top">
+        <div class="brand-icon-box">
+          <div class="brand-icon-inner">
+            <img src="https://res.cloudinary.com/dnrgcigsj/image/upload/v1782800322/ChatGPT_Image_Jun_30_2026_11_46_35_AM_s0aosi.png" alt="FMS FORM Logo" class="brand-logo-img" />
+          </div>
+        </div>
+        <div class="brand-name">
+          <h1>FMS Workspace</h1>
+          <p>Trio Trend Exports Pvt. Ltd</p>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="brand-divider">
+        <div class="brand-divider-dot"></div>
+      </div>
+
+      <!-- Tagline -->
+      <div class="brand-tagline">Streamline. Manage. Succeed.</div>
+
+      <div class="brand-ready-card" aria-hidden="true">
+        <span class="ready-dot"></span>
+        <span>Workspace Ready</span>
+      </div>
+
+      <!-- Illustration -->
+      <div class="brand-illus">
+        <svg class="illus-svg" viewBox="0 0 220 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Clipboard -->
+          <rect x="30" y="18" width="64" height="82" rx="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+          <rect x="50" y="10" width="24" height="14" rx="4" fill="rgba(255,255,255,0.30)" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+          <line x1="42" y1="38" x2="82" y2="38" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="42" y1="50" x2="75" y2="50" stroke="rgba(255,255,255,0.40)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="42" y1="62" x2="78" y2="62" stroke="rgba(255,255,255,0.40)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="42" y1="74" x2="68" y2="74" stroke="rgba(255,255,255,0.40)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="37" cy="38" r="3" fill="rgba(255,255,255,0.55)"/>
+          <circle cx="37" cy="50" r="3" fill="rgba(255,255,255,0.40)"/>
+          <circle cx="37" cy="62" r="3" fill="rgba(255,255,255,0.40)"/>
+          <circle cx="37" cy="74" r="3" fill="rgba(255,255,255,0.40)"/>
+          <!-- Fabric roll -->
+          <ellipse cx="148" cy="95" rx="28" ry="14" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+          <rect x="120" y="72" width="56" height="23" rx="0" fill="rgba(255,255,255,0.13)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+          <ellipse cx="148" cy="72" rx="28" ry="10" fill="rgba(255,255,255,0.22)" stroke="rgba(255,255,255,0.50)" stroke-width="1.5"/>
+          <line x1="130" y1="78" x2="130" y2="95" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+          <line x1="148" y1="78" x2="148" y2="95" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+          <line x1="166" y1="78" x2="166" y2="95" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+          <!-- Arrow -->
+          <path d="M100 70 L115 60" stroke="rgba(255,255,255,0.50)" stroke-width="1.5" stroke-linecap="round" marker-end="url(#arr)"/>
+          <!-- Small boxes -->
+          <rect x="170" y="55" width="22" height="22" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.40)" stroke-width="1.2"/>
+          <rect x="178" y="40" width="22" height="22" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.35)" stroke-width="1.2"/>
+          <!-- Leaf -->
+          <path d="M14 108 Q18 92 28 98 Q22 110 14 108Z" fill="rgba(255,255,255,0.25)"/>
+          <path d="M8 112 Q14 96 24 104 Q16 116 8 112Z" fill="rgba(255,255,255,0.18)"/>
+          <!-- Ground line -->
+          <line x1="10" y1="114" x2="210" y2="114" stroke="rgba(255,255,255,0.20)" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+    </div><!-- /.brand-panel -->
+
+    <!-- ================================================================ -->
+    <!-- RIGHT — Form Panel                                               -->
+    <!-- ================================================================ -->
+    <div class="form-panel">
+
+      <div class="form-heading">
+        <h2>Welcome Back 👋</h2>
+        <p>Sign in to your account to continue</p>
+      </div>
+
+      <!-- Error alert -->
+      <div class="login-alert" id="login-alert">
+        <span class="material-icons-round">error_outline</span>
+        <span id="alert-msg">Invalid username or password. Please try again.</span>
+      </div>
+
+      <form class="login-form" id="login-form" novalidate autocomplete="off">
+
+        <!-- Username -->
+        <div class="field-group" id="field-username">
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <span class="input-left-icon material-icons-round">person_outline</span>
+            <input
+              class="login-input"
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+              autocomplete="username"
+              spellcheck="false"
+            />
+          </div>
+          <div class="field-error">
+            <span class="material-icons-round">error</span>
+            <span>Username is required.</span>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="field-group" id="field-password">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <span class="input-left-icon material-icons-round">lock_outline</span>
+            <input
+              class="login-input"
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+            />
+            <button type="button" class="pw-toggle" id="pw-toggle" tabindex="-1" aria-label="Toggle password">
+              <span class="material-icons-round" id="pw-icon">visibility_off</span>
+            </button>
+          </div>
+          <div class="field-error">
+            <span class="material-icons-round">error</span>
+            <span>Password is required.</span>
+          </div>
+        </div>
+
+        <!-- Remember me + Forgot -->
+        <div class="form-row">
+          <label class="remember-me">
+            <input type="checkbox" id="remember-me" />
+            <span>Remember me</span>
+          </label>
+          <a href="#" class="forgot-link" id="forgot-link">Forgot password?</a>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-login" id="login-btn">
+          <div class="btn-spinner"></div>
+          <span class="btn-text" style="display:flex;align-items:center;gap:8px;">
+            <span class="material-icons-round" style="font-size:18px;">login</span>
+            Sign In
+          </span>
+        </button>
+
+        <!-- OR divider -->
+        <div class="or-divider"><span>or</span></div>
+
+        <!-- Security badge -->
+        <div class="secure-badge">
+          <div class="secure-icon">
+            <span class="material-icons-round">verified_user</span>
+          </div>
+          <div class="secure-text">
+            <strong>Secure &amp; Protected</strong>
+            <p>Your data is encrypted and secure with us.</p>
+          </div>
+        </div>
+
+      </form>
+
+      <div class="form-footer">© 2026 FMS FORM • All rights reserved</div>
+
+    </div><!-- /.form-panel -->
+
+  </div><!-- /.login-card -->
+</div><!-- /.login-wrapper -->
+
+<!--
+  FOR GOOGLE APPS SCRIPT: Replace this script block with <?!= include('login_js'); ?>
+  FOR STANDALONE USE: keep as-is.
+-->
+<script>
+(function () {
+  'use strict';
+
+  var GAS_URL     = 'https://script.google.com/macros/s/AKfycbxeepFAqD3b-LS_B6RP5oY1ER1iKw-Av3oLFEfZZIdbBC2Xfv0DKXzZN0kVKr--Af4K/exec';
+  var SESSION_KEY = 'fms_user';
+  var MAIN_PAGE   = 'index.html';
+
+  var form        = document.getElementById('login-form');
+  var usernameEl  = document.getElementById('username');
+  var passwordEl  = document.getElementById('password');
+  var loginBtn    = document.getElementById('login-btn');
+  var alertBox    = document.getElementById('login-alert');
+  var alertMsg    = document.getElementById('alert-msg');
+  var pwToggle    = document.getElementById('pw-toggle');
+  var pwIcon      = document.getElementById('pw-icon');
+  var successOvl  = document.getElementById('success-overlay');
+  var fieldUser   = document.getElementById('field-username');
+  var fieldPass   = document.getElementById('field-password');
+  var rememberMe  = document.getElementById('remember-me');
+  var forgotLink  = document.getElementById('forgot-link');
+  var forgotModal = document.getElementById('forgot-modal');
+  var forgotClose = document.getElementById('forgot-modal-close');
+  var forgotOk    = document.getElementById('forgot-modal-action');
+
+  // Redirect if already logged in
+  try {
+    var stored = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+    if (stored) { window.location.href = MAIN_PAGE; }
+  } catch (e) {}
+
+  // Password toggle
+  pwToggle.addEventListener('click', function () {
+    var hide = passwordEl.type === 'password';
+    passwordEl.type = hide ? 'text' : 'password';
+    pwIcon.textContent = hide ? 'visibility' : 'visibility_off';
+  });
+
+  // Clear on input
+  usernameEl.addEventListener('input', function () { fieldUser.classList.remove('has-error'); hideAlert(); });
+  passwordEl.addEventListener('input', function () { fieldPass.classList.remove('has-error'); hideAlert(); });
+
+  function setForgotModal(open) {
+    if (!forgotModal) return;
+    forgotModal.classList.toggle('visible', open);
+    forgotModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open && forgotOk) forgotOk.focus();
+  }
+
+  if (forgotLink) {
+    forgotLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      hideAlert();
+      setForgotModal(true);
+    });
+  }
+  [forgotClose, forgotOk].forEach(function (btn) {
+    if (!btn) return;
+    btn.addEventListener('click', function () { setForgotModal(false); });
+  });
+  if (forgotModal) {
+    forgotModal.addEventListener('click', function (e) {
+      if (e.target === forgotModal) setForgotModal(false);
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') setForgotModal(false);
+  });
+
+  function showAlert(msg) {
+    alertMsg.textContent = msg;
+    alertBox.classList.remove('visible');
+    void alertBox.offsetWidth;
+    alertBox.classList.add('visible');
+  }
+
+  function hideAlert() { alertBox.classList.remove('visible'); }
+
+  function validate() {
+    var ok = true;
+    if (!usernameEl.value.trim()) { fieldUser.classList.add('has-error'); ok = false; }
+    if (!passwordEl.value.trim()) { fieldPass.classList.add('has-error'); ok = false; }
+    return ok;
+  }
+
+  function setLoading(on) {
+    loginBtn.disabled = on;
+    loginBtn.classList.toggle('loading', on);
+  }
+
+  function jsonp(params, callback) {
+    var cbName = 'lgin_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    var url = GAS_URL + '?callback=' + cbName;
+    Object.keys(params).forEach(function (k) {
+      url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(String(params[k]));
+    });
+    var timeout;
+    var script = document.createElement('script');
+    window[cbName] = function (data) {
+      clearTimeout(timeout);
+      try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+      callback(null, data);
+    };
+    script.onerror = function () {
+      clearTimeout(timeout);
+      try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+      callback(new Error('Network error — could not reach the server.'));
+    };
+    timeout = setTimeout(function () {
+      try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+      callback(new Error('Request timed out.'));
+    }, 15000);
+    script.src = url;
+    document.head.appendChild(script);
+  }
+
+  function onLoginSuccess(username) {
+    try {
+      sessionStorage.setItem(SESSION_KEY, username);
+      if (rememberMe && rememberMe.checked) localStorage.setItem(SESSION_KEY, username);
+    } catch (e) {}
+    successOvl.classList.add('visible');
+    setTimeout(function () { window.location.href = MAIN_PAGE; }, 1600);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideAlert();
+    if (!validate()) return;
+
+    var username = usernameEl.value.trim();
+    var password = passwordEl.value.trim();
+    setLoading(true);
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function (result) {
+          setLoading(false);
+          if (result && result.success) onLoginSuccess(result.username || username);
+          else showAlert((result && result.error) || 'Invalid username or password.');
+        })
+        .withFailureHandler(function (err) { setLoading(false); showAlert(err.message || 'Login failed.'); })
+        .validateLogin(username, password);
+    } else {
+      jsonp({ action: 'validateLogin', username: username, password: password }, function (err, result) {
+        setLoading(false);
+        if (err) { showAlert(err.message); return; }
+        if (result && result.success) onLoginSuccess(result.username || username);
+        else showAlert((result && result.error) || 'Invalid username or password.');
+      });
+    }
+  });
+
+  [usernameEl, passwordEl].forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); form.dispatchEvent(new Event('submit')); }
+    });
+  });
+
+  // Also read from localStorage on load (remember me)
+  try {
+    var lsUser = localStorage.getItem(SESSION_KEY);
+    if (lsUser) {
+      sessionStorage.setItem(SESSION_KEY, lsUser);
+      window.location.href = MAIN_PAGE;
+    }
+  } catch (e) {}
+
+})();
+</script>
+
+</body>
+</html>

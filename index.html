@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FMS Form</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <!--
+    FOR GOOGLE APPS SCRIPT: Replace the line below with <?!= include('style'); ?>
+    FOR STANDALONE USE: keep this tag as-is.
+  -->
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .batch-auto-input {
+      background: #f0f4ff;
+      color: #1a73e8;
+      font-weight: 600;
+      cursor: default;
+      border-color: #c7d9ff;
+    }
+    .batch-auto-input:focus {
+      box-shadow: none;
+      border-color: #c7d9ff;
+    }
+    .batch-auto-msg {
+      font-size: 11.5px;
+      font-weight: 500;
+      margin-top: 4px;
+      min-height: 16px;
+      line-height: 1.4;
+      transition: color .2s;
+    }
+    .batch-auto-msg--loading {
+      color: #64748b;
+    }
+    .batch-auto-msg--found {
+      color: #15803d;
+    }
+    .batch-auto-msg--not-found {
+      color: #b45309;
+    }
+    .batch-auto-msg--exists {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+    .dd-disabled {
+      pointer-events: none;
+      opacity: 0.45;
+      user-select: none;
+    }
+    #fms-form-el .field-input:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+      border-color: #e2e8f0;
+    }
+    .kpi-icon-green {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .kpi-icon-orange {
+      background: #ffedd5;
+      color: #9a3412;
+    }
+    .dt-date-filter-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .dt-date-icon {
+      font-size: 17px;
+      color: #64748b;
+    }
+    .dt-date-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .dt-date-input {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 5px 9px;
+      font-size: 13px;
+      color: #1e293b;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .15s;
+      cursor: pointer;
+    }
+    .dt-date-input:focus {
+      border-color: #1A73E8;
+      background: #fff;
+    }
+    .dt-date-sep {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    .dt-date-clear-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 50%;
+      background: #fee2e2;
+      color: #dc2626;
+      cursor: pointer;
+      transition: background .15s;
+      padding: 0;
+    }
+    .dt-date-clear-btn:hover { background: #fecaca; }
+    .dt-date-clear-btn .material-icons-round { font-size: 14px; }
+    .autofill-warning {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      background: #fffbeb;
+      border: 1.5px solid #fcd34d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #92400e;
+      margin: 0 28px 18px;
+      line-height: 1.5;
+    }
+    .autofill-warning.visible { display: flex; }
+    .autofill-warning .aw-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+    .autofill-warning .aw-text strong { display: block; font-size: 12.5px; margin-bottom: 2px; }
+    .field-input.autofilled {
+      background: #fffbeb;
+      border-color: #fcd34d;
+    }
+    .field-input.autofilled:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+    }
+  </style>
+</head>
+<body>
+
+<div class="spinner-overlay" id="spinner-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-text">Loading…</div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<div class="app-wrapper">
+
+  <!-- -------------------------------------------------------------------- -->
+  <!-- Sidebar                                                               -->
+  <!-- -------------------------------------------------------------------- -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img src="https://res.cloudinary.com/dnrgcigsj/image/upload/v1782800322/ChatGPT_Image_Jun_30_2026_11_46_35_AM_s0aosi.png" alt="FMS FORM Logo" class="sidebar-logo-img" />
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item" data-page="dashboard" data-title="Dashboard" title="Dashboard">
+        <span class="nav-icon material-icons-round">dashboard</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a class="nav-item active" data-page="fms-form" data-title="FMS Form" title="FMS Form">
+        <span class="nav-icon material-icons-round">assignment</span>
+        <span class="nav-label">FMS Form</span>
+      </a>
+      <a class="nav-item" data-page="batch-list" data-title="Production Data" title="Production Data">
+        <span class="nav-icon material-icons-round">list_alt</span>
+        <span class="nav-label">Production data</span>
+      </a>
+      <a class="nav-item" data-page="reports" data-title="Reports" title="Reports">
+        <span class="nav-icon material-icons-round">bar_chart</span>
+        <span class="nav-label">Reports</span>
+      </a>
+      <a class="nav-item" data-page="settings" data-title="Settings" title="Settings">
+        <span class="nav-icon material-icons-round">settings</span>
+        <span class="nav-label">Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <a class="nav-item" id="logout-btn" title="Logout">
+        <span class="nav-icon material-icons-round">logout</span>
+        <span class="nav-label">Logout</span>
+      </a>
+      <div class="sidebar-footer-label">© 2026 FMS<br>All rights reserved</div>
+    </div>
+  </aside>
+
+  <!-- -------------------------------------------------------------------- -->
+  <!-- Main Content                                                           -->
+  <!-- -------------------------------------------------------------------- -->
+  <div class="main-content">
+
+    <header class="topbar">
+      <button class="topbar-menu-btn" title="Menu" aria-label="Menu">
+        <span class="material-icons-round" style="font-size:22px;">menu</span>
+      </button>
+      <span class="topbar-title" id="topbar-title">FMS FORM</span>
+
+      <div class="topbar-actions">
+        <div class="topbar-bell" title="Notifications">
+          <span class="material-icons-round" style="font-size:24px;">notifications</span>
+          <span class="badge">3</span>
+        </div>
+        <div class="topbar-user" id="topbar-user" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+          <div class="topbar-avatar">
+            <span class="material-icons-round">account_circle</span>
+          </div>
+          <span class="topbar-username" id="topbar-username">User</span>
+          <span class="material-icons-round topbar-user-caret">expand_more</span>
+          <div class="profile-menu" id="profile-menu" role="menu" aria-label="User profile">
+            <div class="profile-menu-head">
+              <div class="profile-menu-avatar">
+                <span class="material-icons-round">account_circle</span>
+              </div>
+              <div class="profile-menu-meta">
+                <div class="profile-menu-name" id="profile-menu-name">User</div>
+                <div class="profile-menu-status">Signed in</div>
+              </div>
+            </div>
+            <button class="profile-menu-item" type="button" id="profile-menu-logout" role="menuitem">
+              <span class="material-icons-round">logout</span>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="content-area">
+
+      <!-- ============================================================ -->
+      <!-- FMS FORM page                                                -->
+      <!-- ============================================================ -->
+      <div id="page-fms-form" class="page-view">
+        <div class="page-card">
+
+          <div class="page-header">
+            <div class="page-header-icon">
+              <svg class="form-header-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <path d="M9 4.5h10l4 4V27.5H9z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M19 4.5V9h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M13 14h7M13 18h7M13 22h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M7 10.5H5.5v15A2.5 2.5 0 0 0 8 28h11.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1>FMS FORM</h1>
+              <p>Fill in the details below</p>
+            </div>
+          </div>
+
+          <form id="fms-form-el" novalidate autocomplete="off">
+            <div class="form-body">
+              <div class="form-grid">
+
+                <!-- 0. Batch (Auto) -->
+                <div class="form-field col-span-1" data-field="batchAuto">
+                  <label class="field-label" for="batchAuto">
+                    <img src="https://res.cloudinary.com/dnrgcigsj/image/upload/v1782726456/sparkles_fxqxhx.jpg" alt="AI" style="width:22px;height:22px;object-fit:contain;flex-shrink:0;margin-right:5px;vertical-align:middle;border-radius:3px;" />
+                    Batch (Auto)
+                  </label>
+                  <input
+                    class="field-input batch-auto-input"
+                    type="text"
+                    id="batchAuto"
+                    readonly
+                    placeholder="Auto-generated"
+                  />
+                  <div id="batch-auto-msg" class="batch-auto-msg"></div>
+                </div>
+
+                <!-- 1. Batch ID -->
+                <div class="form-field col-span-1" data-field="batchId">
+                  <label class="field-label">Batch ID <span class="required">*</span></label>
+                  <div class="dropdown-wrapper" data-dropdown="batchId">
+                    <div class="dropdown-trigger placeholder-active">Select Batch ID</div>
+                    <div class="dropdown-panel">
+                      <div class="dropdown-search-wrap">
+                        <span class="dropdown-search-icon material-icons-round">search</span>
+                        <input class="dropdown-search" type="text" placeholder="Search…" />
+                      </div>
+                      <div class="dropdown-list"></div>
+                    </div>
+                  </div>
+                  <input type="hidden" id="hidden-batchId" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 2. Brand Name -->
+                <div class="form-field col-span-1" data-field="brandName">
+                  <label class="field-label" for="brandName">Brand Name <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="brandName" placeholder="Enter Brand Name" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 3. Category -->
+                <div class="form-field col-span-1" data-field="category">
+                  <label class="field-label" for="category">Category <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="category" placeholder="Enter Category" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 4. Style No -->
+                <div class="form-field col-span-1" data-field="styleNo">
+                  <label class="field-label" for="styleNo">Style No <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="styleNo" placeholder="Enter Style No" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 5. Colour -->
+                <div class="form-field col-span-1" data-field="colour">
+                  <label class="field-label" for="colour">Colour <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="colour" placeholder="Enter Colour" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 6. PO as per Buyer -->
+                <div class="form-field col-span-1" data-field="poAsPerBuyer">
+                  <label class="field-label" for="poAsPerBuyer">PO as per Buyer <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="poAsPerBuyer" placeholder="Enter PO as per Buyer" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 7. Leather Received Date -->
+                <div class="form-field col-span-1" data-field="leatherReceivedDate">
+                  <label class="field-label" for="leatherReceivedDate">Leather Received Date <span class="required">*</span></label>
+                  <input class="field-input" type="date" id="leatherReceivedDate" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 8. Cutting Leather Receive Unit -->
+                <div class="form-field col-span-1" data-field="cuttingLeatherReceiveUnit">
+                  <label class="field-label">Issue to Unit <span class="required">*</span></label>
+                  <div class="dropdown-wrapper" data-dropdown="cuttingLeatherReceiveUnit">
+                    <div class="dropdown-trigger placeholder-active">Select Receive Unit</div>
+                    <div class="dropdown-panel">
+                      <div class="dropdown-search-wrap">
+                        <span class="dropdown-search-icon material-icons-round">search</span>
+                        <input class="dropdown-search" type="text" placeholder="Search…" />
+                      </div>
+                      <div class="dropdown-list"></div>
+                    </div>
+                  </div>
+                  <input type="hidden" id="hidden-cuttingLeatherReceiveUnit" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 9. Fabricator Name — TEXT INPUT -->
+                <div class="form-field col-span-1" data-field="fabricatorName">
+                  <label class="field-label" for="fabricatorName">Fabricator Name <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="fabricatorName" placeholder="Enter Fabricator Name" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 10. Season -->
+                <div class="form-field col-span-1" data-field="season">
+                  <label class="field-label">Season <span class="required">*</span></label>
+                  <div class="dropdown-wrapper" data-dropdown="season">
+                    <div class="dropdown-trigger placeholder-active">Select Season</div>
+                    <div class="dropdown-panel">
+                      <div class="dropdown-search-wrap">
+                        <span class="dropdown-search-icon material-icons-round">search</span>
+                        <input class="dropdown-search" type="text" placeholder="Search…" />
+                      </div>
+                      <div class="dropdown-list"></div>
+                    </div>
+                  </div>
+                  <input type="hidden" id="hidden-season" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 11. SKU -->
+                <div class="form-field col-span-1" data-field="sku">
+                  <label class="field-label" for="sku">SKU <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="sku" placeholder="Enter SKU" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 12. Quantity -->
+                <div class="form-field col-span-1" data-field="quantity">
+                  <label class="field-label" for="quantity">Quantity <span class="required">*</span></label>
+                  <input class="field-input" type="text" id="quantity" inputmode="numeric" placeholder="Enter Quantity (Numbers only)" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 13. ETD -->
+                <div class="form-field col-span-1" data-field="etd">
+                  <label class="field-label" for="etd">ETD <span class="required">*</span></label>
+                  <input class="field-input" type="date" id="etd" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 14. Floor Supervisor Name -->
+                <div class="form-field col-span-1" data-field="floorSupervisorName">
+                  <label class="field-label">Floor Supervisor Name <span class="required">*</span></label>
+                  <div class="dropdown-wrapper" data-dropdown="floorSupervisorName">
+                    <div class="dropdown-trigger placeholder-active">Select Floor Supervisor Name</div>
+                    <div class="dropdown-panel">
+                      <div class="dropdown-search-wrap">
+                        <span class="dropdown-search-icon material-icons-round">search</span>
+                        <input class="dropdown-search" type="text" placeholder="Search…" />
+                      </div>
+                      <div class="dropdown-list"></div>
+                    </div>
+                  </div>
+                  <input type="hidden" id="hidden-floorSupervisorName" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 15. In-Line QC Name -->
+                <div class="form-field col-span-1" data-field="inLineQCName">
+                  <label class="field-label">In-Line QC Name <span class="required">*</span></label>
+                  <div class="dropdown-wrapper" data-dropdown="inLineQCName">
+                    <div class="dropdown-trigger placeholder-active">Select In-Line QC Name</div>
+                    <div class="dropdown-panel">
+                      <div class="dropdown-search-wrap">
+                        <span class="dropdown-search-icon material-icons-round">search</span>
+                        <input class="dropdown-search" type="text" placeholder="Search…" />
+                      </div>
+                      <div class="dropdown-list"></div>
+                    </div>
+                  </div>
+                  <input type="hidden" id="hidden-inLineQCName" />
+                  <span class="error-msg"></span>
+                </div>
+
+                <!-- 16. Production Days (Optional) -->
+                <div class="form-field col-span-1" data-field="productionDays">
+                  <label class="field-label" for="productionDays">Production Days <span style="color:#94a3b8;font-weight:400;">(Optional)</span></label>
+                  <input class="field-input" type="text" id="productionDays" inputmode="numeric" placeholder="Enter Production Days (Numbers only)" />
+                  <span class="error-msg"></span>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="autofill-warning" id="autofill-warning">
+              <span class="aw-icon material-icons-round">warning_amber</span>
+              <div class="aw-text">
+                <strong>Auto-filled details detected</strong>
+                Please make sure the auto-filled details are correct before submitting.
+              </div>
+            </div>
+
+            <div class="form-footer">
+              <button type="button" class="btn btn-reset" id="reset-btn">Reset</button>
+              <button type="submit" class="btn btn-submit" id="submit-btn">
+                <span class="material-icons-round" style="font-size:16px;">check_circle</span>
+                Submit
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+      <!-- Placeholder pages -->
+      <div id="page-dashboard" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">dashboard</span>
+          <h2>Dashboard</h2><p>Dashboard overview will appear here.</p>
+        </div></div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Production Data PAGE                                              -->
+      <!-- ============================================================ -->
+      <div id="page-batch-list" class="page-view" style="display:none;">
+
+        <!-- KPI Grid (shown by default) -->
+        <div id="batch-list-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <svg class="manufacturing-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <path d="M4 25V13.5l6 4V13.5l6 4V9h5v16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M3.5 25.5h25" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M22 9h5l1.5 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M8 22h3M15 22h3M22 22h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="reports-header-text">
+              <h1>Production Data</h1>
+              <p>Batch cutting details and records</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card" id="kpi-cutting-details" role="button" tabindex="0" title="View Batch Cutting Details">
+              <div class="kpi-card-icon kpi-icon-green">
+                <span class="material-icons-round">content_cut</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Batch Cutting Details</div>
+                <div class="kpi-card-subtitle">View all cutting records from the CUTTING DETAILS sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-bantala-details" role="button" tabindex="0" title="View Bantala Details">
+              <div class="kpi-card-icon kpi-icon-orange">
+                <span class="material-icons-round">table_chart</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Bantala Details</div>
+                <div class="kpi-card-subtitle">View all records from the BANTALA DETAILS sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-floor-qc-details" role="button" tabindex="0" title="View Floor Supervisor & In-Line QC Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">fact_check</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Floor Supervisor & In-Line QC Details</div>
+                <div class="kpi-card-subtitle">View all records from the Floor Supervisor & In-Line QC sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-edge-paint-details" role="button" tabindex="0" title="View Edge Paint Details">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">format_paint</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Edge Paint Details</div>
+                <div class="kpi-card-subtitle">View all records from the EDGE-PAINT PART sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-pre-aql-details" role="button" tabindex="0" title="View Pre-AQL Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">assignment_turned_in</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Pre-AQL Details</div>
+                <div class="kpi-card-subtitle">View all records from the PRE-AQL PART sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Batch Cutting Details — Detail view                          -->
+        <!-- ============================================================ -->
+        <div id="batch-list-cutting-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-batch-list" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">content_cut</span>
+              Batch Cutting Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-cutting-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-cutting-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="cutting-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="cutting-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label">Cutting Date</label>
+                  <input type="date" id="cutting-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="cutting-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="cutting-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="cutting-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="cutting-data-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="cutting-data-table-wrap">
+              <div class="dt-empty-state" id="cutting-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="cutting-data-table" style="display:none;">
+                <thead id="cutting-data-thead"></thead>
+                <tbody id="cutting-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="cutting-data-footer" style="display:none;">
+              <div class="dt-info" id="cutting-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="cutting-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- ============================================================ -->
+        <!-- Bantala Details — Detail view                                -->
+        <!-- ============================================================ -->
+        <div id="batch-list-floor-qc-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-floor-qc" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">fact_check</span>
+              Floor Supervisor & In-Line QC Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-floor-qc-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-floor-qc-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="floor-qc-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="floor-qc-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="floor-qc-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="floor-qc-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="floor-qc-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="floor-qc-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="floor-qc-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="floor-qc-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="floor-qc-data-table-wrap">
+              <div class="dt-empty-state" id="floor-qc-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="floor-qc-data-table" style="display:none;">
+                <thead id="floor-qc-data-thead"></thead>
+                <tbody id="floor-qc-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="floor-qc-data-footer" style="display:none;">
+              <div class="dt-info" id="floor-qc-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="floor-qc-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <div id="batch-list-edge-paint-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-edge-paint" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">format_paint</span>
+              Edge Paint Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-edge-paint-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-edge-paint-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="edge-paint-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="edge-paint-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="edge-paint-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="edge-paint-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="edge-paint-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="edge-paint-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="edge-paint-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="edge-paint-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="edge-paint-data-table-wrap">
+              <div class="dt-empty-state" id="edge-paint-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="edge-paint-data-table" style="display:none;">
+                <thead id="edge-paint-data-thead"></thead>
+                <tbody id="edge-paint-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="edge-paint-data-footer" style="display:none;">
+              <div class="dt-info" id="edge-paint-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="edge-paint-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <div id="batch-list-pre-aql-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-pre-aql" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">assignment_turned_in</span>
+              Pre-AQL Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-pre-aql-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-pre-aql-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="pre-aql-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="pre-aql-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="pre-aql-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="pre-aql-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="pre-aql-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="pre-aql-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="pre-aql-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="pre-aql-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="pre-aql-data-table-wrap">
+              <div class="dt-empty-state" id="pre-aql-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="pre-aql-data-table" style="display:none;">
+                <thead id="pre-aql-data-thead"></thead>
+                <tbody id="pre-aql-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="pre-aql-data-footer" style="display:none;">
+              <div class="dt-info" id="pre-aql-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="pre-aql-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <div id="batch-list-bantala-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-bantala" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">table_chart</span>
+              Bantala Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-bantala-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-bantala-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="bantala-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="bantala-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="bantala-date-col-label">Date (Col C)</label>
+                  <input type="date" id="bantala-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="bantala-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="bantala-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="bantala-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="bantala-data-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="bantala-data-table-wrap">
+              <div class="dt-empty-state" id="bantala-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="bantala-data-table" style="display:none;">
+                <thead id="bantala-data-thead"></thead>
+                <tbody id="bantala-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="bantala-data-footer" style="display:none;">
+              <div class="dt-info" id="bantala-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="bantala-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+      <!-- /page-batch-list -->
+
+      <!-- ============================================================ -->
+      <!-- REPORTS PAGE                                                  -->
+      <!-- ============================================================ -->
+      <div id="page-reports" class="page-view" style="display:none;">
+
+        <!-- KPI Grid (shown by default) -->
+        <div id="reports-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">bar_chart</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>Reports</h1>
+              <p>Production reports and analytics</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+
+            <!-- KPI Card: Submitted FMS Data -->
+            <div class="kpi-card" id="kpi-submitted-fms" role="button" tabindex="0" title="View all submitted FMS data">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">table_chart</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Submitted FMS Data</div>
+                <div class="kpi-card-subtitle">View all form submissions from Google Sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Submitted FMS Data — Detail view (hidden until card clicked) -->
+        <!-- ============================================================ -->
+        <div id="reports-fms-data-view" style="display:none;">
+
+          <!-- Breadcrumb / back -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-reports" title="Back to Reports">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Reports
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">table_chart</span>
+              Submitted FMS Data
+            </div>
+            <button class="btn-excel-icon" id="btn-download-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <!-- Green Excel-style background -->
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <!-- White grid lines (spreadsheet look) -->
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <!-- Bold X letter (Excel logo) -->
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <!-- Download arrow at bottom-right -->
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-fms-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar: filters + page size -->
+            <div class="dt-toolbar">
+
+              <!-- Row 1: Global search + Date Range + Period -->
+              <div class="dt-toolbar-row dt-toolbar-filters">
+
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="fms-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="fms-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="fms-date-from">From</label>
+                    <input type="date" id="fms-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="fms-date-to">To</label>
+                    <input type="date" id="fms-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="fms-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+
+                <div class="dt-period-wrap">
+                  <span class="material-icons-round dt-ctrl-icon">event_repeat</span>
+                  <select id="fms-period-filter" class="dt-period-select">
+                    <option value="">Any Period</option>
+                    <option value="fy">Financial Year</option>
+                    <option value="quarter">Quarterly</option>
+                    <option value="pre-quarter">Pre-Quarterly</option>
+                  </select>
+                </div>
+
+              </div><!-- /.dt-toolbar-filters -->
+
+              <!-- Row 2: Page size + count badge -->
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="fms-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="fms-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="fms-data-count-badge">— records</div>
+              </div>
+
+            </div><!-- /.dt-toolbar -->
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="fms-data-table-wrap">
+              <div class="dt-empty-state" id="fms-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="fms-data-table" style="display:none;">
+                <thead id="fms-data-thead"></thead>
+                <tbody id="fms-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="fms-data-footer" style="display:none;">
+              <div class="dt-info" id="fms-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="fms-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+      <!-- /page-reports -->
+
+      <div id="page-settings" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">settings</span>
+          <h2>Settings</h2><p>Application settings will appear here.</p>
+        </div></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!--
+  FOR GOOGLE APPS SCRIPT: Replace with <?!= include('javascript'); ?>
+  FOR STANDALONE USE: keep this tag as-is.
+-->
+<script src="app.js"></script>
+
+</body>
+</html>
