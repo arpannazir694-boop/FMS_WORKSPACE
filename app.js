@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 // IMPORTANT: After deploying/redeploying Code.gs, paste the new URL here.
 // ---------------------------------------------------------------------------
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbxeepFAqD3b-LS_B6RP5oY1ER1iKw-Av3oLFEfZZIdbBC2Xfv0DKXzZN0kVKr--Af4K/exec';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbx99oNMmHYn-jum8NEtkUFqYmR3nV0reWfL1MYC7GDeRxQJu-BbKJq56KW1KcmUoCjRNA/exec';
 
 // ---------------------------------------------------------------------------
 // Session — read logged-in user from sessionStorage (set by login.html)
