@@ -21,13 +21,24 @@ function getSession() {
 
 function clearSession() {
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+}
+
+function getLoginUrl() {
+    if (!/\/index\.html$/i.test(window.location.pathname)) {
+    return GAS_URL;
+    }
+    if (window.location.search && /(?:^|[?&])page=app(?:&|$)/.test(window.location.search)) {
+    return window.location.pathname + '?page=login';
+    }
+    return 'login.html';
 }
 
 function enforceLogin() {
     if (typeof google !== 'undefined' && google.script && google.script.run) return;
     var user = getSession();
     if (!user) {
-    window.location.href = 'login.html';
+    window.location.href = getLoginUrl();
     } else {
     var un = document.getElementById('topbar-username');
     if (un) un.textContent = user;
@@ -36,7 +47,7 @@ function enforceLogin() {
 
 function logoutUser() {
     clearSession();
-    window.location.href = 'login.html';
+    window.location.replace(getLoginUrl());
 }
 
 function initProfileMenu() {
