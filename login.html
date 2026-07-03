@@ -256,10 +256,24 @@
   var forgotClose = document.getElementById('forgot-modal-close');
   var forgotOk    = document.getElementById('forgot-modal-action');
 
+  function getMainUrl() {
+    if (!/\/login\.html$/i.test(window.location.pathname)) {
+      return GAS_URL + '?page=app';
+    }
+    if (window.location.search && /(?:^|[?&])page=login(?:&|$)/.test(window.location.search)) {
+      return window.location.pathname + '?page=app';
+    }
+    return MAIN_PAGE;
+  }
+
+  function goToMainPage() {
+    window.location.replace(getMainUrl());
+  }
+
   // Redirect if already logged in
   try {
     var stored = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    if (stored) { window.location.href = MAIN_PAGE; }
+    if (stored) { goToMainPage(); }
   } catch (e) {}
 
   // Password toggle
@@ -356,7 +370,7 @@
       if (rememberMe && rememberMe.checked) localStorage.setItem(SESSION_KEY, username);
     } catch (e) {}
     successOvl.classList.add('visible');
-    setTimeout(function () { window.location.href = MAIN_PAGE; }, 1600);
+    setTimeout(goToMainPage, 1600);
   }
 
   form.addEventListener('submit', function (e) {
@@ -398,7 +412,7 @@
     var lsUser = localStorage.getItem(SESSION_KEY);
     if (lsUser) {
       sessionStorage.setItem(SESSION_KEY, lsUser);
-      window.location.href = MAIN_PAGE;
+      goToMainPage();
     }
   } catch (e) {}
 
