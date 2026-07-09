@@ -1759,6 +1759,55 @@ html, body {
   width: 44px;
 }
 
+/* PDF File column (Floor Supervisor / In-Line QC tables) */
+.dt-th-pdf {
+  width: 90px;
+  text-align: center;
+  cursor: default;
+  background: #fff;
+  color: #0d1b2e;
+  font-weight: 700;
+}
+
+.dt-filter-cell-pdf {
+  background: #fff;
+}
+
+.dt-td-pdf {
+  text-align: center;
+  width: 90px;
+}
+
+.dt-pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid #1558b0;
+  background: #eaf2ff;
+  color: #1558b0;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+}
+
+.dt-pdf-download-btn .material-icons-round {
+  font-size: 17px;
+}
+
+.dt-pdf-download-btn:hover {
+  background: #1558b0;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(21, 88, 176, 0.35);
+}
+
+.dt-pdf-download-btn:active {
+  transform: translateY(0);
+}
+
 /* Search highlight */
 mark.dt-highlight {
   background: #fef08a;
