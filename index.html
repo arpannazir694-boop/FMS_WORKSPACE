@@ -180,6 +180,10 @@
         <span class="nav-icon material-icons-round">bar_chart</span>
         <span class="nav-label">Reports</span>
       </a>
+      <a class="nav-item" data-page="pdf" data-title="PDF" title="PDF">
+        <span class="nav-icon material-icons-round">picture_as_pdf</span>
+        <span class="nav-label">PDF</span>
+      </a>
       <a class="nav-item" data-page="settings" data-title="Settings" title="Settings">
         <span class="nav-icon material-icons-round">settings</span>
         <span class="nav-label">Settings</span>
@@ -1175,6 +1179,239 @@
         </div></div>
       </div>
 
+            <div id="page-pdf" class="page-view" style="display:none;">
+
+        <!-- PDF KPI view -->
+        <div id="pdf-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">picture_as_pdf</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>PDF</h1>
+              <p>PDF tools and reports</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- Floor Supervisor KPI card -->
+            <div class="kpi-card" id="kpi-pdf-floor-supervisor" role="button" tabindex="0" title="Floor Supervisor">
+              <div class="kpi-card-icon kpi-icon-green">
+                <span class="material-icons-round">supervisor_account</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Floor Supervisor</div>
+                <div class="kpi-card-subtitle">View Floor Supervisor records and data</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- In-Line QC KPI card -->
+            <div class="kpi-card" id="kpi-pdf-inline-qc" role="button" tabindex="0" title="In-Line QC">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">fact_check</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">In-Line QC</div>
+                <div class="kpi-card-subtitle">View In-Line QC records and data</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- FLOOR SUPERVISOR sub-view (inside PDF)                       -->
+        <!-- ============================================================ -->
+        <div id="pdf-floor-supervisor-view" style="display:none;">
+
+          <!-- Top bar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-pdf-fs" title="Back to PDF">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to PDF
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">supervisor_account</span>
+              Floor Supervisor
+            </div>
+            <button class="btn-excel-icon" id="btn-download-fs-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                  <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                  <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                  <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                  <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-fs-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="fs-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="fs-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="fs-date-col-label" for="fs-date-from">Date</label>
+                    <input type="date" id="fs-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="fs-date-to">To</label>
+                    <input type="date" id="fs-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="fs-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="fs-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="fs-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="fs-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="fs-data-table-wrap">
+              <div class="dt-empty-state" id="fs-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="fs-data-table" style="display:none;">
+                <thead id="fs-data-thead"></thead>
+                <tbody id="fs-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="fs-data-footer" style="display:none;">
+              <div class="dt-info" id="fs-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="fs-data-pagination"></div>
+            </div>
+          </div><!-- /.page-card -->
+
+        </div>
+        <!-- /pdf-floor-supervisor-view -->
+
+        <!-- ============================================================ -->
+        <!-- IN-LINE QC sub-view (inside PDF)                             -->
+        <!-- ============================================================ -->
+        <div id="pdf-inline-qc-view" style="display:none;">
+
+          <!-- Top bar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-pdf-iqc" title="Back to PDF">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to PDF
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">fact_check</span>
+              In-Line QC
+            </div>
+            <button class="btn-excel-icon" id="btn-download-iqc-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                  <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                  <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                  <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                  <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-iqc-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="iqc-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="iqc-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="iqc-date-col-label" for="iqc-date-from">Date</label>
+                    <input type="date" id="iqc-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="iqc-date-to">To</label>
+                    <input type="date" id="iqc-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="iqc-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="iqc-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="iqc-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="iqc-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="iqc-data-table-wrap">
+              <div class="dt-empty-state" id="iqc-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="iqc-data-table" style="display:none;">
+                <thead id="iqc-data-thead"></thead>
+                <tbody id="iqc-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="iqc-data-footer" style="display:none;">
+              <div class="dt-info" id="iqc-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="iqc-data-pagination"></div>
+            </div>
+          </div><!-- /.page-card -->
+
+        </div>
+        <!-- /pdf-inline-qc-view -->
+
+      </div>
+      </div>
     </main>
   </div>
 </div>
