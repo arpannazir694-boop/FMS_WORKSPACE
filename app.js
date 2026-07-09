@@ -111,7 +111,7 @@ var currentCuttingQty = null;   // set when a cutting-details match is found
 // ---------------------------------------------------------------------------
 // JSONP helper
 // ---------------------------------------------------------------------------
-function jsonp(params, callback) {
+function jsonp(params, callback, timeoutMs) {
     var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
     var url = GAS_URL + '?callback=' + cbName;
     Object.keys(params).forEach(function (k) {
@@ -138,10 +138,12 @@ function jsonp(params, callback) {
     callback(new Error('Network error — could not reach the server. Make sure Code.gs is deployed and GAS_URL is correct.'));
     };
 
+    // Default timeout raised from 15s -> 30s. Callers that expect a heavier
+    // payload (e.g. large data-table fetches) can pass a longer timeoutMs.
     timeout = setTimeout(function () {
     cleanup();
     callback(new Error('Request timed out.'));
-    }, 15000);
+    }, timeoutMs || 30000);
 
     script.src = url;
     document.head.appendChild(script);
@@ -656,6 +658,10 @@ function initNav() {
         // Reset batch-list to KPI view when navigating to Batch List
         if (page === 'batch-list') {
         showBatchListKpiView();
+        }
+        // Reset PDF to KPI view when navigating to PDF
+        if (page === 'pdf') {
+        showPdfKpiView();
         }
     });
     });
@@ -1284,6 +1290,379 @@ function escapeRegex(str) {
 }
 
 // ---------------------------------------------------------------------------
+// PDF FOLLOW-UP CHECKLISTS — Floor Supervisor & In-Line QC
+// Recreates the printed checklist layout (title bar, info tables, three
+// follow-up sections with fixed check-point templates, signature lines).
+// Uses Verdana throughout. Opens the browser print dialog so the user can
+// save the result as a PDF.
+// ---------------------------------------------------------------------------
+
+var COMPANY_NAME = 'Trio Trend Exports Pvt. Ltd.';
+
+// Fixed checklist templates — match the approved reference layouts exactly.
+var FS_CHECKLIST = [
+    { items: [
+        'PP SAMPLE AVAILABLE',
+        'CHELA SAMPLE',
+        'LEATHER PART RECEVIED',
+        'LINING PART RECEVIED',
+        'RE-INFORCEMENT PART RECEVIED',
+        'ALL FITTINGS RECEIVED',
+        'FORMA RECEIVED',
+        'JIG RECEIVED ( IF REQUIRED)',
+        'SEW IN LABEL',
+        'GLUEING'
+    ] },
+    { items: [
+        'EMBOSSING RECEIVED FROM BIMAN',
+        'STITCHING MACHINE',
+        'DURING PRODUCTION CHECKING EVERY ITEMS(25%)',
+        'EDGE INKING PART RECEIVED (EDGE INKING DEPT)',
+        'CHECK MANPOWER AVAILABILITY WITH EACH FABRICATOR',
+        'FOLLOW UP WITH INLINE QC TO SEE ALL MATERIAL CHECKED/NOT CHECKED',
+        '1 PC FOR LOT APPROVAL'
+    ] },
+    { items: [
+        'ASSEMBLE OF LEATHER COMPONENT',
+        'FINAL ASSAMBLE',
+        'PRODUCTION ONTIME FOLLOW UP',
+        '10% W.I.P GOODS QUALITY CHECKING(WHEN PRODUCTION 80% DONE)',
+        'CLEANING AND CHECKING/AQL DONE'
+    ] }
+];
+
+var IQC_CHECKLIST = [
+    { items: [
+        'PP SAMPLE & YELLOW SEAL SAMPLE AVAILABLE',
+        'CHELA SAMPLE',
+        'LEATHER COLOUR (25%)',
+        'LEATHER QUALITY (25%)',
+        'GRAIN MATCHING (25%)',
+        'LINING TYPE (10%)',
+        'HARDWARE CHECKING (WITH COLOUR ) (10%)',
+        'WEBBING CHECKING (10%)'
+    ] },
+    { items: [
+        'LINING ATTACHMENT (10%)',
+        'EMBOSSING AS PER MRS/BRANDING',
+        'SEW IN LABEL ATTACHMENT (5%)',
+        'SCREEN PRINTING /IF ANY (25%)',
+        'ASSAMBLE OF LEATHER COMPONENT (25%)',
+        'STITCHING LENGTH (SPI) AS REUQUIRED BY BUYER (10%)',
+        'PANEL /IF ANY REQUIRED (25%)',
+        'PANEL JOINT THICKNESS (25%)',
+        'PANEL ATTACHMENT (25%)',
+        'GRAB HANDLE (25%)',
+        'ATTACHMENT OF REINFORCEMENT (25%)',
+        'IF ANY BINDING & PIPING ATTACHMENT (10%)',
+        'LOOP ATTACHMENT (25%)',
+        'SCREW FIXING (LOCKTITE) (100%)',
+        'DECORATIVE STITCH /IF ANY (25%)'
+    ] },
+    { items: [
+        'FINAL STITCHING (25%)',
+        'PULLER ATTACHMENT (5%)',
+        'FINAL ASSEMBLE (25%)',
+        'THREAD TRIMMING (10%)',
+        'SHAPE (25%)',
+        'EDGE PAINT QUALITY (25%)',
+        'CLEANING (25%)',
+        'WIP AQL (20%)'
+    ] }
+];
+
+// ---------------------------------------------------------------------------
+// findFieldValue — fuzzy-matches a header name against a list of regex
+// patterns (in priority order) and returns the value from the same row.
+// Sheet header text can vary slightly, so this tries several likely forms.
+// ---------------------------------------------------------------------------
+function findFieldValue(headers, row, patterns) {
+    for (var p = 0; p < patterns.length; p++) {
+        for (var i = 0; i < headers.length; i++) {
+            if (patterns[p].test(String(headers[i] || '').trim())) {
+                var v = row[i];
+                return (v !== undefined && v !== null) ? String(v) : '';
+            }
+        }
+    }
+    return '';
+}
+
+function extractChecklistFields(headers, row, batchIdOverride) {
+    // Follow-up dates are read by fixed position rather than header text,
+    // since the sheet doesn't reliably label these columns:
+    //   1st Follow Up date = 18th column after the PDF icon → row[18]
+    //   2nd Follow Up date = 19th column after the PDF icon → row[19]
+    //   3rd Follow Up date = 20th column after the PDF icon → row[20]
+    // (The PDF icon sits right after the Serial No. column, i.e. row[0],
+    // so "N-th column after the icon" = row[N].)
+    function colAt(idx) {
+        var v = row[idx];
+        return (v !== undefined && v !== null) ? String(v) : '';
+    }
+
+    return {
+        batchId:      (batchIdOverride !== undefined && batchIdOverride !== null && String(batchIdOverride) !== '')
+                          ? String(batchIdOverride)
+                          : findFieldValue(headers, row, [/batch\s*id/i, /batch\s*no\.?/i]),
+        po:           findFieldValue(headers, row, [/po\s*as\s*per\s*buyer/i, /^po$/i, /purchase\s*order/i]),
+        unit:         findFieldValue(headers, row, [/^unit$/i, /issue\s*to\s*unit/i]),
+        styleNo:      findFieldValue(headers, row, [/style\s*no\.?/i, /^style$/i]),
+        colour:       findFieldValue(headers, row, [/colour/i, /color/i]),
+        quantity:     findFieldValue(headers, row, [/quantity/i, /^qty$/i]),
+        fabricator:   findFieldValue(headers, row, [/fabricator\s*name/i, /fabricator/i]),
+        floorSup:     findFieldValue(headers, row, [/floor\s*supervisor\s*name/i, /floor\s*supervisor/i]),
+        inLineQc:     findFieldValue(headers, row, [/in.?line\s*qc\s*name/i, /in.?line\s*qc/i]),
+        etd:          findFieldValue(headers, row, [/^etd$/i]),
+        topDate:      findFieldValue(headers, row, [/^date$/i, /planned\s*date/i, /^timestamp$/i]),
+        followUp1:    colAt(18),
+        followUp2:    colAt(19),
+        followUp3:    colAt(20)
+    };
+}
+
+function checklistPdfBaseStyles() {
+    return (
+        ':root{ --fit-scale:1; }' +
+        '*{box-sizing:border-box;}' +
+        'body{font-family:Verdana,Geneva,sans-serif;padding:14px;color:#0f172a;background:#fff;}' +
+        '.doc{max-width:760px;margin:0 auto;}' +
+        '.title{text-align:center;font-size:19px;font-weight:bold;color:#12224e;letter-spacing:.5px;margin:0 0 3px;}' +
+        '.company{text-align:center;font-size:12.5px;font-weight:bold;color:#12224e;margin:0 0 7px;}' +
+        '.date-box-row{display:flex;justify-content:flex-end;margin-bottom:6px;}' +
+        '.date-box{border:1.5px solid #12224e;padding:3px 10px;font-size:10.5px;font-weight:bold;color:#12224e;}' +
+        '.info-table{width:100%;border-collapse:collapse;margin-bottom:calc(var(--fit-scale,1) * 7px);}' +
+        '.info-table th,.info-table td{border:1.5px solid #12224e;padding:calc(var(--fit-scale,1) * 4px) 6px;font-size:9.5px;text-align:center;line-height:1.2;}' +
+        '.info-table th{background:#fff;color:#12224e;font-weight:bold;}' +
+        '.info-table td{font-weight:bold;color:#0f172a;}' +
+        '.fup-banner{background:#fff;color:#12224e;text-align:center;font-weight:bold;font-size:10.5px;padding:calc(var(--fit-scale,1) * 3px) 0;border:1.5px solid #12224e;letter-spacing:.3px;}' +
+        '.fup-table{width:100%;border-collapse:collapse;margin-bottom:calc(var(--fit-scale,1) * 7px);}' +
+        '.fup-table th{background:#fff;color:#12224e;font-weight:bold;font-size:9px;padding:calc(var(--fit-scale,1) * 3px) 5px;border:1.5px solid #12224e;text-align:center;}' +
+        '.fup-table td{border:1.5px solid #12224e;padding:calc(var(--fit-scale,1) * 2.5px) 6px;font-size:8.8px;vertical-align:middle;line-height:1.15;}' +
+        '.col-sl{width:36px;text-align:center;color:#334155;}' +
+        '.col-check{width:60px;text-align:center;}' +
+        '.col-remarks{width:150px;}' +
+        '.checkbox{display:inline-block;width:10px;height:10px;border:1.2px solid #12224e;}' +
+        '.sign-row{display:flex;justify-content:space-between;margin-top:calc(var(--fit-scale,1) * 14px);flex-wrap:wrap;gap:12px;}' +
+        '.sign-cell{font-size:9.5px;font-weight:bold;color:#0f172a;white-space:nowrap;}' +
+        '.sign-line{display:inline-block;border-bottom:1px solid #0f172a;width:160px;margin-left:6px;}' +
+        '@media print{ body{padding:0;} .doc{max-width:none;} }' +
+        '@page{ size:A4; margin:8mm; }'
+    );
+}
+
+function buildInfoTable(rowsHtml) {
+    return '<table class="info-table"><tbody>' + rowsHtml + '</tbody></table>';
+}
+
+function buildFupSection(index, dateStr, items) {
+    var ord = ['1ST', '2ND', '3RD'][index] || (index + 1) + 'TH';
+    var bannerLabel = ord + ' FOLLOW UP' + (dateStr ? ' (' + esc(dateStr) + ')' : '');
+    var rows = items.map(function (item, i) {
+        return (
+            '<tr>' +
+                '<td class="col-sl">' + (i + 1) + '</td>' +
+                '<td>' + esc(item) + '</td>' +
+                '<td class="col-check"><span class="checkbox"></span></td>' +
+                '<td class="col-remarks">&nbsp;</td>' +
+            '</tr>'
+        );
+    }).join('');
+    return (
+        '<div class="fup-banner">' + bannerLabel + '</div>' +
+        '<table class="fup-table">' +
+            '<thead><tr>' +
+                '<th class="col-sl">SL</th>' +
+                '<th>CHECK POINTS</th>' +
+                '<th class="col-check">CHECK</th>' +
+                '<th class="col-remarks">REMARKS</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+        '</table>'
+    );
+}
+
+function buildFsPdfHtml(headers, row, batchIdOverride) {
+    var f = extractChecklistFields(headers, row, batchIdOverride);
+    var infoRow1 =
+        '<tr>' +
+            '<th>Batch ID</th><th>PO</th><th>Unit</th><th>Style No.</th><th>Colour</th><th>Quantity</th>' +
+        '</tr>' +
+        '<tr>' +
+            '<td>' + esc(f.batchId)  + '</td>' +
+            '<td>' + esc(f.po)       + '</td>' +
+            '<td>' + esc(f.unit)     + '</td>' +
+            '<td>' + esc(f.styleNo)  + '</td>' +
+            '<td>' + esc(f.colour)  + '</td>' +
+            '<td>' + esc(f.quantity) + '</td>' +
+        '</tr>';
+    var infoRow2 =
+        '<tr>' +
+            '<th>Fabricator Name</th><th>Floor Supervisor Name</th><th>ETD</th>' +
+        '</tr>' +
+        '<tr>' +
+            '<td>' + esc(f.fabricator) + '</td>' +
+            '<td>' + esc(f.floorSup)   + '</td>' +
+            '<td>' + esc(f.etd)        + '</td>' +
+        '</tr>';
+
+    var fupHtml = FS_CHECKLIST.map(function (section, i) {
+        var dateVal = i === 0 ? f.followUp1 : i === 1 ? f.followUp2 : f.followUp3;
+        return buildFupSection(i, dateVal, section.items);
+    }).join('');
+
+    var signHtml =
+        '<div class="sign-row">' +
+            '<div class="sign-cell">In-Line QC Signature<span class="sign-line"></span></div>' +
+            '<div class="sign-cell">Floor Supervisor Signature<span class="sign-line"></span></div>' +
+        '</div>';
+
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>Floor Supervisor Inspection Report' + (f.batchId ? ' - ' + esc(f.batchId) : '') + '</title>' +
+        '<style>' + checklistPdfBaseStyles() + '</style>' +
+        '</head><body><div class="doc">' +
+            '<div class="title">FLOOR SUPERVISOR INSPECTION REPORT</div>' +
+            '<div class="company">' + esc(COMPANY_NAME) + '</div>' +
+            '<div class="date-box-row"><div class="date-box">Date : ' + esc(f.topDate || new Date().toLocaleDateString('en-GB')) + '</div></div>' +
+            buildInfoTable(infoRow1) +
+            buildInfoTable(infoRow2) +
+            fupHtml +
+            signHtml +
+        '</div></body></html>'
+    );
+}
+
+function buildIqcPdfHtml(headers, row, batchIdOverride) {
+    var f = extractChecklistFields(headers, row, batchIdOverride);
+    var infoRow1 =
+        '<tr>' +
+            '<th>Batch ID</th><th>PO</th><th>Unit</th><th>Style No.</th><th>Colour</th><th>Quantity</th>' +
+        '</tr>' +
+        '<tr>' +
+            '<td>' + esc(f.batchId)  + '</td>' +
+            '<td>' + esc(f.po)       + '</td>' +
+            '<td>' + esc(f.unit)     + '</td>' +
+            '<td>' + esc(f.styleNo)  + '</td>' +
+            '<td>' + esc(f.colour)  + '</td>' +
+            '<td>' + esc(f.quantity) + '</td>' +
+        '</tr>';
+    var infoRow2 =
+        '<tr>' +
+            '<th>Fabricator Name</th><th>In-Line QC Name</th><th>Floor Supervisor Name</th><th>ETD</th>' +
+        '</tr>' +
+        '<tr>' +
+            '<td>' + esc(f.fabricator) + '</td>' +
+            '<td>' + esc(f.inLineQc)   + '</td>' +
+            '<td>' + esc(f.floorSup)   + '</td>' +
+            '<td>' + esc(f.etd)        + '</td>' +
+        '</tr>';
+
+    var fupHtml = IQC_CHECKLIST.map(function (section, i) {
+        var dateVal = i === 0 ? f.followUp1 : i === 1 ? f.followUp2 : f.followUp3;
+        return buildFupSection(i, dateVal, section.items);
+    }).join('');
+
+    var signHtml =
+        '<div class="sign-row">' +
+            '<div class="sign-cell">In-Line QC Signature<span class="sign-line"></span></div>' +
+            '<div class="sign-cell">Floor Supervisor Signature<span class="sign-line"></span></div>' +
+            '<div class="sign-cell">WIP AQL OFFICER SIGNATURE<span class="sign-line"></span></div>' +
+        '</div>';
+
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>In-Line QC Inspection Report' + (f.batchId ? ' - ' + esc(f.batchId) : '') + '</title>' +
+        '<style>' + checklistPdfBaseStyles() + '</style>' +
+        '</head><body><div class="doc">' +
+            '<div class="title">IN-LINE QC INSPECTION REPORT</div>' +
+            '<div class="company">' + esc(COMPANY_NAME) + '</div>' +
+            '<div class="date-box-row"><div class="date-box">Date : ' + esc(f.topDate || new Date().toLocaleDateString('en-GB')) + '</div></div>' +
+            buildInfoTable(infoRow1) +
+            buildInfoTable(infoRow2) +
+            fupHtml +
+            signHtml +
+        '</div></body></html>'
+    );
+}
+
+function fitChecklistToPage(win) {
+    // Grows or shrinks row heights / section gaps (via the --fit-scale CSS
+    // var) so the checklist fills the printable A4 area with no leftover
+    // blank space at the bottom, and never overflows onto a second page.
+    var doc  = win.document.querySelector('.doc');
+    var root = win.document.documentElement;
+    if (!doc || !root) return;
+
+    var PAGE_HEIGHT_PX = 1000; // ~A4 height minus 8mm top/bottom margins
+    var PAGE_WIDTH_PX  = 718;  // ~A4 width minus 8mm left/right margins
+    var TOLERANCE      = 6;
+    var MAX_ITER        = 40;
+    var scale           = 1;
+    var MIN_SCALE       = 0.4;
+    var MAX_SCALE       = 3.2;
+
+    for (var i = 0; i < MAX_ITER; i++) {
+        var h = doc.scrollHeight;
+        if (h > PAGE_HEIGHT_PX + TOLERANCE && scale > MIN_SCALE) {
+            scale = Math.max(MIN_SCALE, scale - 0.06);
+        } else if (h < PAGE_HEIGHT_PX - TOLERANCE && scale < MAX_SCALE) {
+            scale = Math.min(MAX_SCALE, scale + 0.06);
+        } else {
+            break;
+        }
+        root.style.setProperty('--fit-scale', scale.toFixed(2));
+    }
+
+    // Final safety net: if content still doesn't fit within the page
+    // (extreme edge cases), shrink the whole document uniformly.
+    var finalHeight = doc.scrollHeight;
+    var finalWidth  = doc.scrollWidth;
+    var fallback = Math.min(PAGE_HEIGHT_PX / finalHeight, PAGE_WIDTH_PX / finalWidth, 1);
+    if (fallback < 0.98) {
+        win.document.body.style.zoom = fallback;
+    }
+}
+
+function openChecklistPrintWindow(html) {
+    var win = window.open('', '_blank', 'width=900,height=750');
+    if (!win) {
+        showToast('error', 'Popup Blocked', 'Please allow popups to download the PDF.');
+        return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(function () {
+        try { fitChecklistToPage(win); } catch (e) { /* ignore */ }
+        try { win.print(); } catch (e) { /* ignore */ }
+    }, 300);
+}
+
+// ---------------------------------------------------------------------------
+// downloadFsRowAsPdf / downloadIqcRowAsPdf — entry points used by the
+// "PDF File" download-icon column in the Floor Supervisor and In-Line QC
+// tables. Each opens a print-ready window styled to match the approved
+// checklist layout (Verdana font throughout).
+// ---------------------------------------------------------------------------
+function downloadFsRowAsPdf(headers, row, batchIdOverride) {
+    try {
+        openChecklistPrintWindow(buildFsPdfHtml(headers, row, batchIdOverride));
+    } catch (err) {
+        showToast('error', 'PDF Error', 'Could not generate the PDF: ' + (err.message || err));
+    }
+}
+
+function downloadIqcRowAsPdf(headers, row, batchIdOverride) {
+    try {
+        openChecklistPrintWindow(buildIqcPdfHtml(headers, row, batchIdOverride));
+    } catch (err) {
+        showToast('error', 'PDF Error', 'Could not generate the PDF: ' + (err.message || err));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Pagination
 // ---------------------------------------------------------------------------
 function buildPagination(current, total) {
@@ -1719,6 +2098,15 @@ function showBatchListKpiView() {
     if (floorQcView) floorQcView.style.display = 'none';
     if (edgePaintView) edgePaintView.style.display = 'none';
     if (preAqlView) preAqlView.style.display = 'none';
+}
+
+function showPdfKpiView() {
+    var kpiView = document.getElementById('pdf-kpi-view');
+    var fsView  = document.getElementById('pdf-floor-supervisor-view');
+    var iqcView = document.getElementById('pdf-inline-qc-view');
+    if (kpiView) kpiView.style.display = '';
+    if (fsView)  fsView.style.display  = 'none';
+    if (iqcView) iqcView.style.display = 'none';
 }
 
 function showBatchListCuttingView() {
@@ -2261,6 +2649,12 @@ function updateFloorQcSearchClearBtn() {
     if (s && b) b.style.display = s.value ? '' : 'none';
 }
 
+// Chunk size for paginated fetches, and a generous per-chunk timeout. Each
+// chunk is a small, bounded request, so this stays reliable no matter how
+// many total rows the sheet ends up having.
+var FLOOR_QC_PAGE_SIZE    = 1500;
+var FLOOR_QC_PAGE_TIMEOUT = 60000;
+
 function fetchFloorQcDetailsAndRender() {
     var emptyEl  = document.getElementById('floor-qc-data-empty');
     var tableEl  = document.getElementById('floor-qc-data-table');
@@ -2269,18 +2663,60 @@ function fetchFloorQcDetailsAndRender() {
     if (tableEl)  tableEl.style.display  = 'none';
     if (footerEl) footerEl.style.display = 'none';
     showSpinner('Fetching Floor Supervisor & In-Line QC details...');
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-            .withSuccessHandler(function (r) { hideSpinner(); onFloorQcDataLoaded(r); })
-            .withFailureHandler(function (e) { hideSpinner(); onFloorQcDataError(e.message || 'Failed to load data.'); })
-            .getFloorQcDetailsData();
-        return;
+
+    var accumulated = { headers: [], headerGroups: [], rows: [] };
+    var useGoogleRun = (typeof google !== 'undefined' && google.script && google.script.run);
+    var consecutiveEmptyChunks = 0;
+    var MAX_CONSECUTIVE_EMPTY_CHUNKS = 2; // safety net — stop instead of paging forever
+
+    function requestPage(offset) {
+        function handleResult(r) {
+            if (!r || !r.success) {
+                hideSpinner();
+                onFloorQcDataError((r && r.error) || 'Failed to load data.');
+                return;
+            }
+
+            if (offset === 0) {
+                accumulated.headers      = r.headers      || [];
+                accumulated.headerGroups = r.headerGroups || [];
+            }
+
+            var pageRows = r.rows || [];
+            accumulated.rows = accumulated.rows.concat(pageRows);
+            consecutiveEmptyChunks = (pageRows.length === 0) ? (consecutiveEmptyChunks + 1) : 0;
+
+            var shouldStop = !r.hasMore || consecutiveEmptyChunks >= MAX_CONSECUTIVE_EMPTY_CHUNKS;
+
+            if (!shouldStop) {
+                showSpinner('Fetching Floor Supervisor & In-Line QC details… (' + accumulated.rows.length + ' rows loaded)');
+                requestPage(r.nextOffset);
+            } else {
+                hideSpinner();
+                onFloorQcDataLoaded({
+                    success: true,
+                    headers: accumulated.headers,
+                    headerGroups: accumulated.headerGroups,
+                    rows: accumulated.rows
+                });
+            }
+        }
+
+        if (useGoogleRun) {
+            google.script.run
+                .withSuccessHandler(handleResult)
+                .withFailureHandler(function (e) { hideSpinner(); onFloorQcDataError(e.message || 'Failed to load data.'); })
+                .getFloorQcDetailsData(offset, FLOOR_QC_PAGE_SIZE);
+            return;
+        }
+
+        jsonp({ action: 'getFloorQcDetailsData', offset: offset, limit: FLOOR_QC_PAGE_SIZE }, function (err, result) {
+            if (err) { hideSpinner(); onFloorQcDataError(err.message); return; }
+            handleResult(result);
+        }, FLOOR_QC_PAGE_TIMEOUT);
     }
-    jsonp({ action: 'getFloorQcDetailsData' }, function (err, result) {
-        hideSpinner();
-        if (err) { onFloorQcDataError(err.message); return; }
-        onFloorQcDataLoaded(result);
-    });
+
+    requestPage(0);
 }
 
 function onFloorQcDataLoaded(result) {
@@ -4339,6 +4775,891 @@ function downloadBantalaExcel() {
     showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
+// ===========================================================================
+// FLOOR SUPERVISOR KPI — PLANNED DATE sheet, range starting at A1
+// ===========================================================================
+
+var fsTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',
+    dateTo:        ''
+};
+
+function getFsDateColIndex() { return 0; }
+
+function updateFsDateClearBtn() {
+    var btn = document.getElementById('fs-date-clear');
+    if (btn) btn.style.display = (fsTableData.dateFrom || fsTableData.dateTo) ? '' : 'none';
+}
+
+function updateFsSearchClearBtn() {
+    var s = document.getElementById('fs-data-search');
+    var b = document.getElementById('fs-data-search-clear');
+    if (s && b) b.style.display = s.value ? '' : 'none';
+}
+
+function fetchFsDetailsAndRender() {
+    var emptyEl  = document.getElementById('fs-data-empty');
+    var tableEl  = document.getElementById('fs-data-table');
+    var footerEl = document.getElementById('fs-data-footer');
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data…'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching Floor Supervisor data…');
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function (r) { hideSpinner(); onFsDataLoaded(r); })
+            .withFailureHandler(function (e) { hideSpinner(); onFsDataError(e.message || 'Failed to load data.'); })
+            .getFloorSupervisorKpiData();
+        return;
+    }
+    jsonp({ action: 'getFloorSupervisorKpiData' }, function (err, result) {
+        hideSpinner();
+        if (err) { onFsDataError(err.message); return; }
+        onFsDataLoaded(result);
+    });
+}
+
+function onFsDataLoaded(result) {
+    if (!result || !result.success) {
+        onFsDataError((result && result.error) || 'Failed to load data.');
+        return;
+    }
+    fsTableData.headers       = result.headers || [];
+    fsTableData.allRows       = result.rows    || [];
+    fsTableData.filteredRows  = fsTableData.allRows.slice();
+    fsTableData.sortCol       = -1;
+    fsTableData.sortAsc       = true;
+    fsTableData.page          = 1;
+    fsTableData.searchQuery   = '';
+    fsTableData.columnFilters = {};
+    fsTableData.dateFrom      = '';
+    fsTableData.dateTo        = '';
+
+    var s = document.getElementById('fs-data-search');
+    if (s) s.value = '';
+    updateFsSearchClearBtn();
+
+    var df = document.getElementById('fs-date-from');
+    var dt = document.getElementById('fs-date-to');
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+    updateFsDateClearBtn();
+
+    var labelEl = document.getElementById('fs-date-col-label');
+    if (labelEl && fsTableData.headers[getFsDateColIndex()]) {
+        labelEl.textContent = fsTableData.headers[getFsDateColIndex()];
+    }
+
+    buildFsTableHeaders();
+    renderFsTable();
+}
+
+function onFsDataError(msg) {
+    var emptyEl = document.getElementById('fs-data-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById('fs-data-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById('fs-data-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', 'Data Error', msg);
+}
+
+function buildFsTableHeaders() {
+    var thead = document.getElementById('fs-data-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    fsTableData.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-fs-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onFsSortColumn(i); });
+        trHead.appendChild(th);
+        if (i === 0) {
+            var thPdf = document.createElement('th');
+            thPdf.className = 'dt-th dt-th-pdf';
+            thPdf.textContent = 'PDF File';
+            trHead.appendChild(thPdf);
+        }
+    });
+
+    var trFilter = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+
+    fsTableData.headers.forEach(function (h, i) {
+        var th    = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap  = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dt-col-filter';
+        input.placeholder = 'Filter…';
+        input.value = fsTableData.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'dt-col-filter-clear';
+        clearBtn.title = 'Clear filter';
+        clearBtn.innerHTML = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            fsTableData.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyFsFilters();
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            fsTableData.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyFsFilters();
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+        if (i === 0) {
+            var thFilterPdf = document.createElement('th');
+            thFilterPdf.className = 'dt-filter-cell dt-filter-cell-pdf';
+            trFilter.appendChild(thFilterPdf);
+        }
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onFsSortColumn(colIndex) {
+    if (fsTableData.sortCol === colIndex) {
+        fsTableData.sortAsc = !fsTableData.sortAsc;
+    } else {
+        fsTableData.sortCol = colIndex;
+        fsTableData.sortAsc = true;
+    }
+    updateFsSortIcons();
+    applyFsFilters();
+}
+
+function updateFsSortIcons() {
+    document.querySelectorAll('[data-fs-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-fs-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === fsTableData.sortCol) {
+            icon.textContent = fsTableData.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function applyFsFilters() {
+    var query      = fsTableData.searchQuery;
+    var colFilters = fsTableData.columnFilters;
+    var dateColIdx = getFsDateColIndex();
+    var dateFrom   = fsTableData.dateFrom ? new Date(fsTableData.dateFrom + 'T00:00:00') : null;
+    var dateTo     = fsTableData.dateTo   ? new Date(fsTableData.dateTo   + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    fsTableData.filteredRows = fsTableData.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0 && dateColIdx < row.length) {
+            var parsed = parseCreatedAt(row[dateColIdx]);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (fsTableData.sortCol >= 0) {
+        var sc = fsTableData.sortCol;
+        fsTableData.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return fsTableData.sortAsc ? cmp : -cmp;
+        });
+    }
+
+    fsTableData.page = 1;
+    renderFsTable();
+}
+
+function applyFsSearch(query) {
+    fsTableData.searchQuery = (query || '').trim().toLowerCase();
+    applyFsFilters();
+}
+
+function renderFsTable() {
+    var tbody      = document.getElementById('fs-data-tbody');
+    var tableEl    = document.getElementById('fs-data-table');
+    var emptyEl    = document.getElementById('fs-data-empty');
+    var footerEl   = document.getElementById('fs-data-footer');
+    var countBadge = document.getElementById('fs-data-count-badge');
+    if (!tbody) return;
+
+    var total      = fsTableData.filteredRows.length;
+    var pageSize   = fsTableData.pageSize;
+    var page       = fsTableData.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    fsTableData.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = fsTableData.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', fsTableData.headers.length + 2);
+        var hasFilter = Object.keys(fsTableData.columnFilters).some(function (k) {
+            return (fsTableData.columnFilters[k] || '').trim() !== '';
+        });
+        var hasDate = fsTableData.dateFrom || fsTableData.dateTo;
+        tdEmpty.innerHTML =
+            '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (fsTableData.searchQuery || hasFilter || hasDate
+                ? 'No records match the current filter.'
+                : (fsTableData.allRows.length === 0 ? 'No data found in Floor Supervisor sheet.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById('fs-data-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        fsTableData.headers.forEach(function (header, ci) {
+            var td = document.createElement('td');
+            td.className = 'dt-td';
+            var cellVal = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            if (fsTableData.searchQuery && cellVal.toLowerCase().indexOf(fsTableData.searchQuery) !== -1) {
+                td.innerHTML = esc(cellVal).replace(
+                    new RegExp(escapeRegex(esc(fsTableData.searchQuery)), 'gi'),
+                    '<mark class="dt-highlight">$&</mark>'
+                );
+            } else {
+                td.textContent = cellVal;
+            }
+            tr.appendChild(td);
+            if (ci === 0) {
+                var tdPdf = document.createElement('td');
+                tdPdf.className = 'dt-td dt-td-pdf';
+                var pdfBtn = document.createElement('button');
+                pdfBtn.type = 'button';
+                pdfBtn.className = 'dt-pdf-download-btn';
+                pdfBtn.title = 'Download PDF';
+                pdfBtn.innerHTML = '<span class="material-icons-round">download</span>';
+                pdfBtn.addEventListener('click', function () {
+                    downloadFsRowAsPdf(fsTableData.headers, row, row[1]);
+                });
+                tdPdf.appendChild(pdfBtn);
+                tr.appendChild(tdPdf);
+            }
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById('fs-data-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (fsTableData.allRows.length !== total ? ' (filtered from ' + fsTableData.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildFsPagination(page, totalPages);
+}
+
+function buildFsPagination(current, total) {
+    var container = document.getElementById('fs-data-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                fsTableData.page = page;
+                renderFsTable();
+                var wrap = document.getElementById('fs-data-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '…') {
+            var el = document.createElement('span');
+            el.className = 'dt-page-ellipsis';
+            el.textContent = '…';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function downloadFsExcel() {
+    var headers = fsTableData.headers;
+    var rows    = fsTableData.filteredRows;
+    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
+    var xml = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<?mso-application progid="Excel.Sheet"?>',
+        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
+        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
+        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+        '  <Styles>',
+        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
+        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '  </Styles>',
+        '  <Worksheet ss:Name="Floor Supervisor">',
+        '    <Table>'
+    ];
+    xml.push('      <Column ss:Width="40"/>');
+    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
+    xml.push('      <Row ss:Height="22">');
+    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
+    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
+    xml.push('      </Row>');
+    rows.forEach(function (row, idx) {
+        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
+        xml.push('      <Row ss:Height="18">');
+        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
+        headers.forEach(function (header, ci) {
+            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            var num   = Number(cell);
+            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
+            if (isNum) {
+                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
+            } else {
+                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
+            }
+        });
+        xml.push('      </Row>');
+    });
+    xml.push('    </Table></Worksheet></Workbook>');
+    var content  = xml.join('\n');
+    var now      = new Date();
+    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
+    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
+    var filename = 'Floor_Supervisor_' + dateStr + '.xls';
+    try {
+        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = filename; a.style.display = 'none';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
+    } catch (e) {
+        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
+    }
+    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
+}
+
+
+// ===========================================================================
+// IN-LINE QC KPI — PLANNED DATE sheet, ranges A1 + V1 combined
+// ===========================================================================
+
+var iqcTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',
+    dateTo:        ''
+};
+
+function getIqcDateColIndex() { return 0; }
+
+function updateIqcDateClearBtn() {
+    var btn = document.getElementById('iqc-date-clear');
+    if (btn) btn.style.display = (iqcTableData.dateFrom || iqcTableData.dateTo) ? '' : 'none';
+}
+
+function updateIqcSearchClearBtn() {
+    var s = document.getElementById('iqc-data-search');
+    var b = document.getElementById('iqc-data-search-clear');
+    if (s && b) b.style.display = s.value ? '' : 'none';
+}
+
+function fetchIqcDetailsAndRender() {
+    var emptyEl  = document.getElementById('iqc-data-empty');
+    var tableEl  = document.getElementById('iqc-data-table');
+    var footerEl = document.getElementById('iqc-data-footer');
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data…'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching In-Line QC data…');
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function (r) { hideSpinner(); onIqcDataLoaded(r); })
+            .withFailureHandler(function (e) { hideSpinner(); onIqcDataError(e.message || 'Failed to load data.'); })
+            .getInLineQcKpiData();
+        return;
+    }
+    jsonp({ action: 'getInLineQcKpiData' }, function (err, result) {
+        hideSpinner();
+        if (err) { onIqcDataError(err.message); return; }
+        onIqcDataLoaded(result);
+    });
+}
+
+function onIqcDataLoaded(result) {
+    if (!result || !result.success) {
+        onIqcDataError((result && result.error) || 'Failed to load data.');
+        return;
+    }
+    iqcTableData.headers       = result.headers || [];
+    iqcTableData.allRows       = result.rows    || [];
+    iqcTableData.filteredRows  = iqcTableData.allRows.slice();
+    iqcTableData.sortCol       = -1;
+    iqcTableData.sortAsc       = true;
+    iqcTableData.page          = 1;
+    iqcTableData.searchQuery   = '';
+    iqcTableData.columnFilters = {};
+    iqcTableData.dateFrom      = '';
+    iqcTableData.dateTo        = '';
+
+    var s = document.getElementById('iqc-data-search');
+    if (s) s.value = '';
+    updateIqcSearchClearBtn();
+
+    var df = document.getElementById('iqc-date-from');
+    var dt = document.getElementById('iqc-date-to');
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+    updateIqcDateClearBtn();
+
+    var labelEl = document.getElementById('iqc-date-col-label');
+    if (labelEl && iqcTableData.headers[getIqcDateColIndex()]) {
+        labelEl.textContent = iqcTableData.headers[getIqcDateColIndex()];
+    }
+
+    buildIqcTableHeaders();
+    renderIqcTable();
+}
+
+function onIqcDataError(msg) {
+    var emptyEl = document.getElementById('iqc-data-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById('iqc-data-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById('iqc-data-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', 'Data Error', msg);
+}
+
+function buildIqcTableHeaders() {
+    var thead = document.getElementById('iqc-data-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    iqcTableData.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-iqc-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onIqcSortColumn(i); });
+        trHead.appendChild(th);
+        if (i === 0) {
+            var thPdf = document.createElement('th');
+            thPdf.className = 'dt-th dt-th-pdf';
+            thPdf.textContent = 'PDF File';
+            trHead.appendChild(thPdf);
+        }
+    });
+
+    var trFilter = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+
+    iqcTableData.headers.forEach(function (h, i) {
+        var th    = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap  = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dt-col-filter';
+        input.placeholder = 'Filter…';
+        input.value = iqcTableData.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'dt-col-filter-clear';
+        clearBtn.title = 'Clear filter';
+        clearBtn.innerHTML = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            iqcTableData.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyIqcFilters();
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            iqcTableData.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyIqcFilters();
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+        if (i === 0) {
+            var thFilterPdf = document.createElement('th');
+            thFilterPdf.className = 'dt-filter-cell dt-filter-cell-pdf';
+            trFilter.appendChild(thFilterPdf);
+        }
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onIqcSortColumn(colIndex) {
+    if (iqcTableData.sortCol === colIndex) {
+        iqcTableData.sortAsc = !iqcTableData.sortAsc;
+    } else {
+        iqcTableData.sortCol = colIndex;
+        iqcTableData.sortAsc = true;
+    }
+    updateIqcSortIcons();
+    applyIqcFilters();
+}
+
+function updateIqcSortIcons() {
+    document.querySelectorAll('[data-iqc-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-iqc-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === iqcTableData.sortCol) {
+            icon.textContent = iqcTableData.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function applyIqcFilters() {
+    var query      = iqcTableData.searchQuery;
+    var colFilters = iqcTableData.columnFilters;
+    var dateColIdx = getIqcDateColIndex();
+    var dateFrom   = iqcTableData.dateFrom ? new Date(iqcTableData.dateFrom + 'T00:00:00') : null;
+    var dateTo     = iqcTableData.dateTo   ? new Date(iqcTableData.dateTo   + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    iqcTableData.filteredRows = iqcTableData.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0 && dateColIdx < row.length) {
+            var parsed = parseCreatedAt(row[dateColIdx]);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (iqcTableData.sortCol >= 0) {
+        var sc = iqcTableData.sortCol;
+        iqcTableData.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return iqcTableData.sortAsc ? cmp : -cmp;
+        });
+    }
+
+    iqcTableData.page = 1;
+    renderIqcTable();
+}
+
+function applyIqcSearch(query) {
+    iqcTableData.searchQuery = (query || '').trim().toLowerCase();
+    applyIqcFilters();
+}
+
+function renderIqcTable() {
+    var tbody      = document.getElementById('iqc-data-tbody');
+    var tableEl    = document.getElementById('iqc-data-table');
+    var emptyEl    = document.getElementById('iqc-data-empty');
+    var footerEl   = document.getElementById('iqc-data-footer');
+    var countBadge = document.getElementById('iqc-data-count-badge');
+    if (!tbody) return;
+
+    var total      = iqcTableData.filteredRows.length;
+    var pageSize   = iqcTableData.pageSize;
+    var page       = iqcTableData.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    iqcTableData.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = iqcTableData.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', iqcTableData.headers.length + 2);
+        var hasFilter = Object.keys(iqcTableData.columnFilters).some(function (k) {
+            return (iqcTableData.columnFilters[k] || '').trim() !== '';
+        });
+        var hasDate = iqcTableData.dateFrom || iqcTableData.dateTo;
+        tdEmpty.innerHTML =
+            '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (iqcTableData.searchQuery || hasFilter || hasDate
+                ? 'No records match the current filter.'
+                : (iqcTableData.allRows.length === 0 ? 'No data found in In-Line QC sheet.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById('iqc-data-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        iqcTableData.headers.forEach(function (header, ci) {
+            var td = document.createElement('td');
+            td.className = 'dt-td';
+            var cellVal = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            if (iqcTableData.searchQuery && cellVal.toLowerCase().indexOf(iqcTableData.searchQuery) !== -1) {
+                td.innerHTML = esc(cellVal).replace(
+                    new RegExp(escapeRegex(esc(iqcTableData.searchQuery)), 'gi'),
+                    '<mark class="dt-highlight">$&</mark>'
+                );
+            } else {
+                td.textContent = cellVal;
+            }
+            tr.appendChild(td);
+            if (ci === 0) {
+                var tdPdf = document.createElement('td');
+                tdPdf.className = 'dt-td dt-td-pdf';
+                var pdfBtn = document.createElement('button');
+                pdfBtn.type = 'button';
+                pdfBtn.className = 'dt-pdf-download-btn';
+                pdfBtn.title = 'Download PDF';
+                pdfBtn.innerHTML = '<span class="material-icons-round">download</span>';
+                pdfBtn.addEventListener('click', function () {
+                    downloadIqcRowAsPdf(iqcTableData.headers, row, row[1]);
+                });
+                tdPdf.appendChild(pdfBtn);
+                tr.appendChild(tdPdf);
+            }
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById('iqc-data-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (iqcTableData.allRows.length !== total ? ' (filtered from ' + iqcTableData.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildIqcPagination(page, totalPages);
+}
+
+function buildIqcPagination(current, total) {
+    var container = document.getElementById('iqc-data-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                iqcTableData.page = page;
+                renderIqcTable();
+                var wrap = document.getElementById('iqc-data-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '…') {
+            var el = document.createElement('span');
+            el.className = 'dt-page-ellipsis';
+            el.textContent = '…';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function downloadIqcExcel() {
+    var headers = iqcTableData.headers;
+    var rows    = iqcTableData.filteredRows;
+    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
+    var xml = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<?mso-application progid="Excel.Sheet"?>',
+        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
+        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
+        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+        '  <Styles>',
+        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
+        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
+        '  </Styles>',
+        '  <Worksheet ss:Name="In-Line QC">',
+        '    <Table>'
+    ];
+    xml.push('      <Column ss:Width="40"/>');
+    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
+    xml.push('      <Row ss:Height="22">');
+    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
+    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
+    xml.push('      </Row>');
+    rows.forEach(function (row, idx) {
+        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
+        xml.push('      <Row ss:Height="18">');
+        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
+        headers.forEach(function (header, ci) {
+            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            var num   = Number(cell);
+            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
+            if (isNum) {
+                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
+            } else {
+                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
+            }
+        });
+        xml.push('      </Row>');
+    });
+    xml.push('    </Table></Worksheet></Workbook>');
+    var content  = xml.join('\n');
+    var now      = new Date();
+    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
+    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
+    var filename = 'InLine_QC_' + dateStr + '.xls';
+    try {
+        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = filename; a.style.display = 'none';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
+    } catch (e) {
+        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
+    }
+    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
+}
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
@@ -4359,7 +5680,201 @@ function init() {
     if (resetBtn) resetBtn.addEventListener('click', function (e) { e.preventDefault(); resetForm(); });
 
     fetchDropdowns();
+    initPdfPage();
+    initFloorSupervisor();
+    initInlineQc();
 }
+// ---------------------------------------------------------------------------
+// PDF Page — KPI card navigation + back buttons
+// ---------------------------------------------------------------------------
+function initPdfPage() {
+    var kpiFs = document.getElementById('kpi-pdf-floor-supervisor');
+    if (kpiFs) {
+        kpiFs.addEventListener('click', function () {
+            var kpi = document.getElementById('pdf-kpi-view');
+            var fsv = document.getElementById('pdf-floor-supervisor-view');
+            if (kpi) kpi.style.display = 'none';
+            if (fsv) fsv.style.display = '';
+            if (fsTableData.allRows.length === 0) { fetchFsDetailsAndRender(); }
+            else { renderFsTable(); }
+        });
+        kpiFs.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kpiFs.click(); }
+        });
+    }
+
+    var kpiIqc = document.getElementById('kpi-pdf-inline-qc');
+    if (kpiIqc) {
+        kpiIqc.addEventListener('click', function () {
+            var kpi = document.getElementById('pdf-kpi-view');
+            var iqv = document.getElementById('pdf-inline-qc-view');
+            if (kpi) kpi.style.display = 'none';
+            if (iqv) iqv.style.display = '';
+            if (iqcTableData.allRows.length === 0) { fetchIqcDetailsAndRender(); }
+            else { renderIqcTable(); }
+        });
+        kpiIqc.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kpiIqc.click(); }
+        });
+    }
+
+    var backFs = document.getElementById('btn-back-pdf-fs');
+    if (backFs) {
+        backFs.addEventListener('click', function () { showPdfKpiView(); });
+    }
+
+    var backIqc = document.getElementById('btn-back-pdf-iqc');
+    if (backIqc) {
+        backIqc.addEventListener('click', function () { showPdfKpiView(); });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Floor Supervisor — event wiring
+// ---------------------------------------------------------------------------
+function initFloorSupervisor() {
+    var fsRefreshBtn = document.getElementById('btn-refresh-fs-data');
+    if (fsRefreshBtn) {
+        fsRefreshBtn.addEventListener('click', function () {
+            fsTableData.allRows       = [];
+            fsTableData.columnFilters = {};
+            fetchFsDetailsAndRender();
+        });
+    }
+
+    var fsExcelBtn = document.getElementById('btn-download-fs-excel');
+    if (fsExcelBtn) fsExcelBtn.addEventListener('click', function () { downloadFsExcel(); });
+
+    var fsSearchEl = document.getElementById('fs-data-search');
+    if (fsSearchEl) {
+        fsSearchEl.addEventListener('input', function () {
+            updateFsSearchClearBtn();
+            applyFsSearch(fsSearchEl.value);
+        });
+    }
+    var fsClearSearch = document.getElementById('fs-data-search-clear');
+    if (fsClearSearch) {
+        fsClearSearch.addEventListener('click', function () {
+            var s = document.getElementById('fs-data-search');
+            if (s) { s.value = ''; s.focus(); }
+            updateFsSearchClearBtn();
+            applyFsSearch('');
+        });
+    }
+
+    var fsDateFrom = document.getElementById('fs-date-from');
+    if (fsDateFrom) {
+        fsDateFrom.addEventListener('change', function () {
+            fsTableData.dateFrom = fsDateFrom.value;
+            updateFsDateClearBtn();
+            applyFsFilters();
+        });
+    }
+    var fsDateTo = document.getElementById('fs-date-to');
+    if (fsDateTo) {
+        fsDateTo.addEventListener('change', function () {
+            fsTableData.dateTo = fsDateTo.value;
+            updateFsDateClearBtn();
+            applyFsFilters();
+        });
+    }
+    var fsDateClear = document.getElementById('fs-date-clear');
+    if (fsDateClear) {
+        fsDateClear.addEventListener('click', function () {
+            fsTableData.dateFrom = '';
+            fsTableData.dateTo   = '';
+            var f = document.getElementById('fs-date-from');
+            var t = document.getElementById('fs-date-to');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            updateFsDateClearBtn();
+            applyFsFilters();
+        });
+    }
+
+    var fsPageSize = document.getElementById('fs-data-page-size');
+    if (fsPageSize) {
+        fsPageSize.addEventListener('change', function () {
+            fsTableData.pageSize = parseInt(fsPageSize.value, 10) || 25;
+            fsTableData.page = 1;
+            renderFsTable();
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// In-Line QC — event wiring
+// ---------------------------------------------------------------------------
+function initInlineQc() {
+    var iqcRefreshBtn = document.getElementById('btn-refresh-iqc-data');
+    if (iqcRefreshBtn) {
+        iqcRefreshBtn.addEventListener('click', function () {
+            iqcTableData.allRows       = [];
+            iqcTableData.columnFilters = {};
+            fetchIqcDetailsAndRender();
+        });
+    }
+
+    var iqcExcelBtn = document.getElementById('btn-download-iqc-excel');
+    if (iqcExcelBtn) iqcExcelBtn.addEventListener('click', function () { downloadIqcExcel(); });
+
+    var iqcSearchEl = document.getElementById('iqc-data-search');
+    if (iqcSearchEl) {
+        iqcSearchEl.addEventListener('input', function () {
+            updateIqcSearchClearBtn();
+            applyIqcSearch(iqcSearchEl.value);
+        });
+    }
+    var iqcClearSearch = document.getElementById('iqc-data-search-clear');
+    if (iqcClearSearch) {
+        iqcClearSearch.addEventListener('click', function () {
+            var s = document.getElementById('iqc-data-search');
+            if (s) { s.value = ''; s.focus(); }
+            updateIqcSearchClearBtn();
+            applyIqcSearch('');
+        });
+    }
+
+    var iqcDateFrom = document.getElementById('iqc-date-from');
+    if (iqcDateFrom) {
+        iqcDateFrom.addEventListener('change', function () {
+            iqcTableData.dateFrom = iqcDateFrom.value;
+            updateIqcDateClearBtn();
+            applyIqcFilters();
+        });
+    }
+    var iqcDateTo = document.getElementById('iqc-date-to');
+    if (iqcDateTo) {
+        iqcDateTo.addEventListener('change', function () {
+            iqcTableData.dateTo = iqcDateTo.value;
+            updateIqcDateClearBtn();
+            applyIqcFilters();
+        });
+    }
+    var iqcDateClear = document.getElementById('iqc-date-clear');
+    if (iqcDateClear) {
+        iqcDateClear.addEventListener('click', function () {
+            iqcTableData.dateFrom = '';
+            iqcTableData.dateTo   = '';
+            var f = document.getElementById('iqc-date-from');
+            var t = document.getElementById('iqc-date-to');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            updateIqcDateClearBtn();
+            applyIqcFilters();
+        });
+    }
+
+    var iqcPageSize = document.getElementById('iqc-data-page-size');
+    if (iqcPageSize) {
+        iqcPageSize.addEventListener('change', function () {
+            iqcTableData.pageSize = parseInt(iqcPageSize.value, 10) || 25;
+            iqcTableData.page = 1;
+            renderIqcTable();
+        });
+    }
+}
+
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
