@@ -9,6 +9,7 @@
 // IMPORTANT: After deploying/redeploying Code.gs, paste the new URL here.
 // ---------------------------------------------------------------------------
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbx99oNMmHYn-jum8NEtkUFqYmR3nV0reWfL1MYC7GDeRxQJu-BbKJq56KW1KcmUoCjRNA/exec';
+var DICE_FORMA_URL = 'https://script.google.com/macros/s/AKfycbxiKzPvhMr1BG22J7q2VvCMunHlav1s3lOgfizUUKbD10q49gZSotRyF2Wd_kvwSzcT/exec';
 
 // ---------------------------------------------------------------------------
 // Session — read logged-in user from sessionStorage (set by login.html)
@@ -674,6 +675,147 @@ function initNav() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// FORMA & DICE tracker forms (stored in the separate DICE/FORMA spreadsheet)
+// ---------------------------------------------------------------------------
+function currentSubmitter() {
+    return getSession() || (document.getElementById('topbar-username') || {}).textContent || 'User';
+}
+
+function clearTrackerErrors(form) {
+    form.querySelectorAll('.form-field').forEach(function (field) { field.classList.remove('has-error'); });
+}
+
+function validateTrackerForm(form) {
+    clearTrackerErrors(form);
+    var firstInvalid = null;
+    form.querySelectorAll('[required]').forEach(function (input) {
+        if (!input.checkValidity()) {
+            var field = input.closest('.form-field');
+            if (field) field.classList.add('has-error');
+            if (!firstInvalid) firstInvalid = input;
+        }
+    });
+    if (firstInvalid) {
+        firstInvalid.focus();
+        showToast('error', 'Required fields', 'Please complete all required fields with valid values.');
+        return false;
+    }
+    return true;
+}
+
+function fileAsPayload(file) {
+    return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () {
+            var content = String(reader.result || '').split(',')[1] || '';
+            resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', base64: content });
+        };
+        reader.onerror = function () { reject(new Error('Could not read "' + file.name + '".')); };
+        reader.readAsDataURL(file);
+    });
+}
+
+function postDiceForma(payload) {
+    return fetch(DICE_FORMA_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    }).then(function (response) {
+        if (!response.ok) throw new Error('The form server returned HTTP ' + response.status + '.');
+        return response.json();
+    }).then(function (result) {
+        if (!result || !result.success) throw new Error((result && result.error) || 'The form server did not confirm the submission.');
+        return result;
+    });
+}
+
+function submitTrackerForm(form, type) {
+    if (!validateTrackerForm(form)) return;
+    var button = form.querySelector('[type="submit"]');
+    var original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="material-icons-round">hourglass_top</span>Submitting...';
+
+    var data = {};
+    form.querySelectorAll('input:not([type="file"])').forEach(function (input) { data[input.name] = input.value.trim(); });
+    data.submittedBy = currentSubmitter().trim();
+    var fileInput = form.querySelector('[type="file"]');
+    var files = fileInput ? Array.prototype.slice.call(fileInput.files || []) : [];
+
+    Promise.all(files.map(fileAsPayload))
+        .then(function (attachments) {
+            return postDiceForma({ action: type === 'dice' ? 'submitDiceForm' : 'submitFormaForm', formData: data, attachments: attachments });
+        })
+        .then(function () {
+            form.reset();
+            clearTrackerErrors(form);
+            showToast('success', 'Submitted', type === 'dice' ? 'Dice details have been submitted successfully.' : 'Forma details have been submitted successfully.');
+        })
+        .catch(function (err) {
+            showToast('error', 'Submission failed', err && err.message ? err.message : 'Please check your internet connection and try again.');
+        })
+        .then(function () {
+            button.disabled = false;
+            button.innerHTML = original;
+        });
+}
+
+function initDiceFormaForms() {
+    var menu = document.getElementById('forma-dice-menu');
+    var diceView = document.getElementById('dice-tracker-view');
+    var formaView = document.getElementById('forma-tracker-view');
+    function showView(view) {
+        if (menu) menu.style.display = 'none';
+        if (diceView) diceView.style.display = view === 'dice' ? '' : 'none';
+        if (formaView) formaView.style.display = view === 'forma' ? '' : 'none';
+    }
+    var diceOpen = document.getElementById('open-dice-tracker');
+    var formaOpen = document.getElementById('open-forma-tracker');
+    if (diceOpen) diceOpen.addEventListener('click', function () { showView('dice'); });
+    if (formaOpen) formaOpen.addEventListener('click', function () { showView('forma'); });
+    document.querySelectorAll('[data-form-back]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            if (menu) menu.style.display = '';
+            if (diceView) diceView.style.display = 'none';
+            if (formaView) formaView.style.display = 'none';
+        });
+    });
+    var diceForm = document.getElementById('dice-tracker-form');
+    var formaForm = document.getElementById('forma-tracker-form');
+    if (diceForm) diceForm.addEventListener('submit', function (event) { event.preventDefault(); submitTrackerForm(diceForm, 'dice'); });
+    if (formaForm) formaForm.addEventListener('submit', function (event) { event.preventDefault(); submitTrackerForm(formaForm, 'forma'); });
+    initAttachmentDropzone('dice-attachment', 'dice-attachment-dropzone', 'dice-attachment-name');
+    initAttachmentDropzone('forma-attachment', 'forma-attachment-dropzone', 'forma-attachment-name');
+}
+
+function initAttachmentDropzone(inputId, zoneId, nameId) {
+    var input = document.getElementById(inputId);
+    var zone = document.getElementById(zoneId);
+    var name = document.getElementById(nameId);
+    if (!input || !zone || !name) return;
+
+    function update(files) {
+        var count = files ? files.length : 0;
+        name.textContent = count ? count + ' file' + (count > 1 ? 's' : '') + ' selected: ' + Array.prototype.map.call(files, function (file) { return file.name; }).join(', ') : 'No file selected';
+        zone.classList.toggle('is-selected', !!count);
+    }
+    input.addEventListener('change', function () { update(input.files); });
+    input.form.addEventListener('reset', function () { setTimeout(function () { update(input.files); }, 0); });
+    ['dragenter', 'dragover'].forEach(function (eventName) {
+        zone.addEventListener(eventName, function (event) { event.preventDefault(); zone.classList.add('is-dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (eventName) {
+        zone.addEventListener(eventName, function (event) { event.preventDefault(); zone.classList.remove('is-dragover'); });
+    });
+    zone.addEventListener('drop', function (event) {
+        if (event.dataTransfer && event.dataTransfer.files) {
+            input.files = event.dataTransfer.files;
+            update(input.files);
+        }
+    });
+}
+
 // ===========================================================================
 // REPORTS — Submitted FMS Data
 // ===========================================================================
@@ -843,8 +985,12 @@ function getBoundsForPeriod(periodVal) {
 function showReportsKpiView() {
     var kpiView  = document.getElementById('reports-kpi-view');
     var dataView = document.getElementById('reports-fms-data-view');
+    var diceView = document.getElementById('reports-dice-summary-view');
+    var formaView = document.getElementById('reports-forma-summary-view');
     if (kpiView)  kpiView.style.display  = '';
     if (dataView) dataView.style.display = 'none';
+    if (diceView) diceView.style.display = 'none';
+    if (formaView) formaView.style.display = 'none';
 }
 
 function showReportsFmsDataView() {
@@ -859,6 +1005,596 @@ function showReportsFmsDataView() {
     } else {
     renderFmsTable();
     }
+}
+
+// ===========================================================================
+// Tracker Summaries — Dice Data Summary / Forma Data Summary
+//
+// Same table structure, layout, filters, sorting, pagination, date range
+// filter, and Excel export as the Production Data sub-views (e.g. Batch
+// Cutting Details). Data is pulled from the separate DICE_FORMA web app
+// instead of google.script.run.
+// ===========================================================================
+
+var diceSummaryTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',   // YYYY-MM-DD — filters on Timestamp column
+    dateTo:        ''    // YYYY-MM-DD — filters on Timestamp column
+};
+
+var formaSummaryTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',   // YYYY-MM-DD — filters on Timestamp column
+    dateTo:        ''    // YYYY-MM-DD — filters on Timestamp column
+};
+
+function getTrackerSummaryConfig(type) {
+    return type === 'dice'
+        ? { prefix: 'dice-summary', viewId: 'reports-dice-summary-view', action: 'getDiceSummary', label: 'Dice', emptyLabel: 'Dice Data Summary', excelSheetName: 'Dice Data Summary', excelFilePrefix: 'Dice_Data_Summary' }
+        : { prefix: 'forma-summary', viewId: 'reports-forma-summary-view', action: 'getFormaSummary', label: 'Forma', emptyLabel: 'Forma Data Summary', excelSheetName: 'Forma Data Summary', excelFilePrefix: 'Forma_Data_Summary' };
+}
+
+function getTrackerSummaryState(type) {
+    return type === 'dice' ? diceSummaryTableData : formaSummaryTableData;
+}
+
+// Column index 0 ("Timestamp") is the date-filter column for both sheets.
+function getTrackerSummaryDateColIndex() { return 0; }
+
+function showTrackerSummary(type) {
+    var kpiView = document.getElementById('reports-kpi-view');
+    var fmsView = document.getElementById('reports-fms-data-view');
+    var diceView = document.getElementById('reports-dice-summary-view');
+    var formaView = document.getElementById('reports-forma-summary-view');
+    if (kpiView) kpiView.style.display = 'none';
+    if (fmsView) fmsView.style.display = 'none';
+    if (diceView) diceView.style.display = type === 'dice' ? '' : 'none';
+    if (formaView) formaView.style.display = type === 'forma' ? '' : 'none';
+
+    var state = getTrackerSummaryState(type);
+    if (state.allRows.length === 0) {
+        fetchTrackerSummary(type);
+    } else {
+        renderTrackerSummaryTable(type);
+    }
+}
+
+function fetchTrackerSummary(type) {
+    var config = getTrackerSummaryConfig(type);
+    var prefix = config.prefix;
+    var emptyEl  = document.getElementById(prefix + '-empty');
+    var tableEl  = document.getElementById(prefix + '-table');
+    var footerEl = document.getElementById(prefix + '-footer');
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data…'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching ' + config.label + ' data…');
+
+    fetch(DICE_FORMA_URL + '?action=' + encodeURIComponent(config.action) + '&_=' + Date.now())
+        .then(function (response) {
+            if (!response.ok) throw new Error('The form server returned HTTP ' + response.status + '.');
+            return response.json();
+        })
+        .then(function (result) {
+            hideSpinner();
+            if (!result || !result.success) throw new Error((result && result.error) || 'Could not load data.');
+            if (!Array.isArray(result.headers) || !Array.isArray(result.rows)) {
+                throw new Error('The DICE_FORMA web app needs to be redeployed with the latest summary code.');
+            }
+            onTrackerSummaryLoaded(type, result);
+        })
+        .catch(function (err) {
+            hideSpinner();
+            onTrackerSummaryError(type, err.message || 'Could not load data.');
+        });
+}
+
+function onTrackerSummaryLoaded(type, result) {
+    var config = getTrackerSummaryConfig(type);
+    var prefix = config.prefix;
+    var state  = getTrackerSummaryState(type);
+
+    state.headers       = result.headers || [];
+    state.allRows       = result.rows    || [];
+    state.filteredRows  = state.allRows.slice();
+    state.sortCol       = -1;
+    state.sortAsc       = true;
+    state.page          = 1;
+    state.searchQuery    = '';
+    state.columnFilters = {};
+    state.dateFrom       = '';
+    state.dateTo         = '';
+
+    var searchEl = document.getElementById(prefix + '-search');
+    if (searchEl) searchEl.value = '';
+    updateTrackerSummarySearchClearBtn(type);
+
+    var dFrom = document.getElementById(prefix + '-date-from');
+    var dTo   = document.getElementById(prefix + '-date-to');
+    if (dFrom) dFrom.value = '';
+    if (dTo)   dTo.value   = '';
+    updateTrackerSummaryDateClearBtn(type);
+
+    buildTrackerSummaryTableHeaders(type);
+    renderTrackerSummaryTable(type);
+}
+
+function onTrackerSummaryError(type, msg) {
+    var config = getTrackerSummaryConfig(type);
+    var prefix = config.prefix;
+    var emptyEl = document.getElementById(prefix + '-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById(prefix + '-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById(prefix + '-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', config.label + ' Data Error', msg);
+}
+
+function buildTrackerSummaryTableHeaders(type) {
+    var config = getTrackerSummaryConfig(type);
+    var prefix = config.prefix;
+    var state  = getTrackerSummaryState(type);
+    var thead  = document.getElementById(prefix + '-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    // Label row
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    state.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-' + prefix + '-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onTrackerSummarySortColumn(type, i); });
+        trHead.appendChild(th);
+    });
+
+    // Per-column filter row
+    var trFilter    = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+    state.headers.forEach(function (h, i) {
+        var th       = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap     = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input    = document.createElement('input');
+        input.type        = 'text';
+        input.className   = 'dt-col-filter';
+        input.placeholder = 'Filter…';
+        input.value       = state.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className    = 'dt-col-filter-clear';
+        clearBtn.title        = 'Clear filter';
+        clearBtn.innerHTML    = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            state.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyTrackerSummaryFilters(type);
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            state.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyTrackerSummaryFilters(type);
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onTrackerSummarySortColumn(type, colIndex) {
+    var state = getTrackerSummaryState(type);
+    if (state.sortCol === colIndex) {
+        state.sortAsc = !state.sortAsc;
+    } else {
+        state.sortCol = colIndex;
+        state.sortAsc = true;
+    }
+    updateTrackerSummarySortIcons(type);
+    applyTrackerSummaryFilters(type);
+}
+
+function updateTrackerSummarySortIcons(type) {
+    var config = getTrackerSummaryConfig(type);
+    var state  = getTrackerSummaryState(type);
+    document.querySelectorAll('[data-' + config.prefix + '-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-' + config.prefix + '-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === state.sortCol) {
+            icon.textContent = state.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function updateTrackerSummaryDateClearBtn(type) {
+    var config = getTrackerSummaryConfig(type);
+    var state  = getTrackerSummaryState(type);
+    var clearBtn = document.getElementById(config.prefix + '-date-clear');
+    if (!clearBtn) return;
+    clearBtn.style.display = (state.dateFrom || state.dateTo) ? '' : 'none';
+}
+
+function applyTrackerSummaryFilters(type) {
+    var state      = getTrackerSummaryState(type);
+    var query      = state.searchQuery;
+    var colFilters = state.columnFilters;
+    var dateColIdx = getTrackerSummaryDateColIndex();
+
+    var dateFrom = state.dateFrom ? new Date(state.dateFrom + 'T00:00:00') : null;
+    var dateTo   = state.dateTo   ? new Date(state.dateTo   + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    state.filteredRows = state.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0) {
+            var rawDate = row[dateColIdx];
+            var parsed  = parseCreatedAt(rawDate);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (state.sortCol >= 0) {
+        var sc = state.sortCol;
+        state.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return state.sortAsc ? cmp : -cmp;
+        });
+    }
+    state.page = 1;
+    renderTrackerSummaryTable(type);
+}
+
+function applyTrackerSummarySearch(type, query) {
+    var state = getTrackerSummaryState(type);
+    state.searchQuery = (query || '').trim().toLowerCase();
+    applyTrackerSummaryFilters(type);
+}
+
+// Renders a cell's value — attachment links (URLs) become clickable links,
+// everything else is plain text with the active search term highlighted.
+function renderTrackerSummaryCellValue(td, cellVal, searchQuery, isAttachmentColumn) {
+    if (isAttachmentColumn && /^https?:\/\//i.test(cellVal)) {
+        var previews = document.createElement('div');
+        previews.className = 'tracker-attachment-previews';
+        cellVal.split(/\r?\n/).filter(Boolean).forEach(function (url, linkIndex) {
+            var link = document.createElement('a');
+            var fileIdMatch = url.match(/\/d\/([^/?#]+)/) || url.match(/[?&]id=([^&#]+)/);
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.title = 'Open attachment';
+
+            var image = document.createElement('img');
+            image.className = 'tracker-attachment-preview';
+            image.alt = 'Attachment ' + (linkIndex + 1);
+            image.loading = 'lazy';
+            image.src = fileIdMatch
+                ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileIdMatch[1]) + '&sz=w240'
+                : url;
+            image.onerror = function () {
+                this.style.display = 'none';
+                link.classList.add('tracker-attachment-preview-unavailable');
+                link.textContent = 'Open attachment';
+            };
+            link.appendChild(image);
+            previews.appendChild(link);
+        });
+        td.appendChild(previews);
+        return;
+    }
+    if (searchQuery && cellVal.toLowerCase().indexOf(searchQuery) !== -1) {
+        td.innerHTML = esc(cellVal).replace(
+            new RegExp(escapeRegex(esc(searchQuery)), 'gi'),
+            '<mark class="dt-highlight">$&</mark>'
+        );
+    } else {
+        td.textContent = cellVal;
+    }
+}
+
+function renderTrackerSummaryTable(type) {
+    var config = getTrackerSummaryConfig(type);
+    var prefix = config.prefix;
+    var state  = getTrackerSummaryState(type);
+
+    var tbody      = document.getElementById(prefix + '-tbody');
+    var tableEl    = document.getElementById(prefix + '-table');
+    var emptyEl    = document.getElementById(prefix + '-empty');
+    var footerEl   = document.getElementById(prefix + '-footer');
+    var countBadge = document.getElementById(prefix + '-count-badge');
+    if (!tbody) return;
+
+    var total      = state.filteredRows.length;
+    var pageSize   = state.pageSize;
+    var page       = state.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    state.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = state.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', state.headers.length + 1);
+        var hasFilter = Object.keys(state.columnFilters).some(function (k) {
+            return (state.columnFilters[k] || '').trim() !== '';
+        });
+        tdEmpty.innerHTML = '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (state.searchQuery || hasFilter
+                ? 'No records match the current filter.'
+                : (state.allRows.length === 0 ? 'No data found in ' + config.emptyLabel + '.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById(prefix + '-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        state.headers.forEach(function (header, ci) {
+            var td  = document.createElement('td');
+            var isAttachmentColumn = /attachment/i.test(header);
+            td.className = 'dt-td' + (isAttachmentColumn ? ' tracker-attachment-cell' : '');
+            var cellVal  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            renderTrackerSummaryCellValue(td, cellVal, state.searchQuery, isAttachmentColumn);
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById(prefix + '-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (state.allRows.length !== total ? ' (filtered from ' + state.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildTrackerSummaryPagination(type, page, totalPages);
+}
+
+function buildTrackerSummaryPagination(type, current, total) {
+    var config    = getTrackerSummaryConfig(type);
+    var state     = getTrackerSummaryState(type);
+    var container = document.getElementById(config.prefix + '-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                state.page = page;
+                renderTrackerSummaryTable(type);
+                var wrap = document.getElementById(config.prefix + '-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '…') {
+            var el = document.createElement('span');
+            el.className   = 'dt-page-ellipsis';
+            el.textContent = '…';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function updateTrackerSummarySearchClearBtn(type) {
+    var config   = getTrackerSummaryConfig(type);
+    var searchEl = document.getElementById(config.prefix + '-search');
+    var clearBtn = document.getElementById(config.prefix + '-search-clear');
+    if (!searchEl || !clearBtn) return;
+    clearBtn.style.display = searchEl.value ? '' : 'none';
+}
+
+var excelJsLoadPromise;
+
+function loadExcelJs() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (excelJsLoadPromise) return excelJsLoadPromise;
+    excelJsLoadPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+        script.onload = function () { window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('Excel export library did not load.')); };
+        script.onerror = function () { reject(new Error('Could not load the Excel export library.')); };
+        document.head.appendChild(script);
+    });
+    return excelJsLoadPromise;
+}
+
+function getDriveFileId(url) {
+    var match = String(url || '').match(/\/d\/([^/?#]+)/) || String(url || '').match(/[?&]id=([^&#]+)/);
+    return match ? match[1] : '';
+}
+
+function fetchTrackerAttachmentImages(fileIds) {
+    if (!fileIds.length) return Promise.resolve({});
+    return fetch(DICE_FORMA_URL + '?action=getAttachmentImages&ids=' + encodeURIComponent(fileIds.join(',')))
+        .then(function (response) {
+            if (!response.ok) throw new Error('Could not fetch attachment images.');
+            return response.json();
+        })
+        .then(function (result) {
+            if (!result || !result.success) throw new Error((result && result.error) || 'Could not fetch attachment images.');
+            return (result.images || []).reduce(function (images, image) {
+                images[image.id] = image;
+                return images;
+            }, {});
+        });
+}
+
+function downloadTrackerSummaryExcel(type) {
+    var config  = getTrackerSummaryConfig(type);
+    var state   = getTrackerSummaryState(type);
+    var headers = state.headers;
+    var rows    = state.filteredRows;
+    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
+    var attachmentColumns = headers.map(function (header, index) { return /attachment/i.test(header) ? index : -1; }).filter(function (index) { return index >= 0; });
+    var fileIds = {};
+    rows.forEach(function (row) {
+        attachmentColumns.forEach(function (columnIndex) {
+            String(row[columnIndex] || '').split(/\r?\n/).forEach(function (url) {
+                var fileId = getDriveFileId(url);
+                if (fileId) fileIds[fileId] = true;
+            });
+        });
+    });
+    showToast('info', 'Preparing Excel', 'Adding attachment images to the workbook...');
+    Promise.all([loadExcelJs(), fetchTrackerAttachmentImages(Object.keys(fileIds))])
+        .then(function (results) {
+            var ExcelJS = results[0];
+            var images = results[1];
+            var workbook = new ExcelJS.Workbook();
+            var worksheet = workbook.addWorksheet(config.excelSheetName);
+            var border = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+            worksheet.columns = [{ width: 6 }].concat(headers.map(function (header) { return { width: /attachment/i.test(header) ? 38 : 20 }; }));
+            worksheet.addRow(['#'].concat(headers));
+            worksheet.getRow(1).height = 24;
+            worksheet.getRow(1).eachCell(function (cell) {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cell.border = { top: border, left: border, bottom: border, right: border };
+            });
+            rows.forEach(function (row, rowIndex) {
+                var exportedRow = [rowIndex + 1].concat(headers.map(function (header, columnIndex) {
+                    var value = String(row[columnIndex] !== undefined && row[columnIndex] !== null ? row[columnIndex] : '');
+                    return /attachment/i.test(header) ? '' : value;
+                }));
+                var excelRow = worksheet.addRow(exportedRow);
+                var attachmentCount = 0;
+                attachmentColumns.forEach(function (columnIndex) {
+                    attachmentCount = Math.max(attachmentCount, String(row[columnIndex] || '').split(/\r?\n/).filter(Boolean).length);
+                });
+                var attachmentImageRows = Math.ceil(attachmentCount / 2);
+                excelRow.height = attachmentCount ? attachmentImageRows * 68 + 8 : 20;
+                excelRow.eachCell(function (cell) {
+                    cell.alignment = { vertical: 'middle', wrapText: true };
+                    cell.border = { top: border, left: border, bottom: border, right: border };
+                    if (rowIndex % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                });
+                attachmentColumns.forEach(function (columnIndex) {
+                    var urls = String(row[columnIndex] || '').split(/\r?\n/).filter(Boolean);
+                    var cell = excelRow.getCell(columnIndex + 2);
+                    urls.forEach(function (url, imageIndex) {
+                        var image = images[getDriveFileId(url)];
+                        if (!image) {
+                            if (!cell.value) cell.value = { text: 'Open attachment', hyperlink: url };
+                            return;
+                        }
+                        var imageId = workbook.addImage({ base64: image.base64, extension: image.mimeType === 'image/png' ? 'png' : 'jpeg' });
+                        worksheet.addImage(imageId, {
+                            tl: {
+                                col: columnIndex + 1.08 + (imageIndex % 2) * 0.51,
+                                row: rowIndex + 1 + (Math.floor(imageIndex / 2) / Math.max(Math.ceil(urls.length / 2), 1))
+                            },
+                            ext: { width: 112, height: 76 },
+                            editAs: 'oneCell'
+                        });
+                    });
+                });
+            });
+            return workbook.xlsx.writeBuffer();
+        })
+        .then(function (buffer) {
+            var now = new Date();
+            var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+            var filename = config.excelFilePrefix + '_' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.xlsx';
+            var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var url = URL.createObjectURL(blob);
+            var anchor = document.createElement('a');
+            anchor.href = url; anchor.download = filename; anchor.style.display = 'none';
+            document.body.appendChild(anchor); anchor.click();
+            setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(anchor); }, 300);
+            showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
+        })
+        .catch(function (err) {
+            showToast('error', 'Excel Download Failed', err && err.message ? err.message : 'Could not create the Excel file.');
+        });
 }
 
 // ---------------------------------------------------------------------------
@@ -1924,6 +2660,93 @@ function initReports() {
         }
     });
     }
+
+    [['dice', 'kpi-dice-summary'], ['forma', 'kpi-forma-summary']].forEach(function (item) {
+        var type = item[0];
+        var card = document.getElementById(item[1]);
+        if (!card) return;
+        card.addEventListener('click', function () { showTrackerSummary(type); });
+        card.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showTrackerSummary(type); }
+        });
+    });
+    document.querySelectorAll('.tracker-summary-back').forEach(function (button) {
+        button.addEventListener('click', showReportsKpiView);
+    });
+
+    ['dice', 'forma'].forEach(function (type) {
+        var config = getTrackerSummaryConfig(type);
+        var prefix = config.prefix;
+        var state  = getTrackerSummaryState(type);
+
+        var refreshBtn = document.getElementById('btn-refresh-' + prefix);
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function () {
+                state.allRows       = [];
+                state.columnFilters = {};
+                fetchTrackerSummary(type);
+            });
+        }
+
+        var excelBtn = document.getElementById('btn-download-' + prefix + '-excel');
+        if (excelBtn) excelBtn.addEventListener('click', function () { downloadTrackerSummaryExcel(type); });
+
+        var searchEl = document.getElementById(prefix + '-search');
+        if (searchEl) {
+            searchEl.addEventListener('input', function () {
+                updateTrackerSummarySearchClearBtn(type);
+                applyTrackerSummarySearch(type, searchEl.value);
+            });
+        }
+        var clearSearchBtn = document.getElementById(prefix + '-search-clear');
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function () {
+                var s = document.getElementById(prefix + '-search');
+                if (s) { s.value = ''; s.focus(); }
+                updateTrackerSummarySearchClearBtn(type);
+                applyTrackerSummarySearch(type, '');
+            });
+        }
+
+        var dateFromEl = document.getElementById(prefix + '-date-from');
+        if (dateFromEl) {
+            dateFromEl.addEventListener('change', function () {
+                state.dateFrom = dateFromEl.value;
+                updateTrackerSummaryDateClearBtn(type);
+                applyTrackerSummaryFilters(type);
+            });
+        }
+        var dateToEl = document.getElementById(prefix + '-date-to');
+        if (dateToEl) {
+            dateToEl.addEventListener('change', function () {
+                state.dateTo = dateToEl.value;
+                updateTrackerSummaryDateClearBtn(type);
+                applyTrackerSummaryFilters(type);
+            });
+        }
+        var dateClearBtn = document.getElementById(prefix + '-date-clear');
+        if (dateClearBtn) {
+            dateClearBtn.addEventListener('click', function () {
+                state.dateFrom = '';
+                state.dateTo   = '';
+                var f = document.getElementById(prefix + '-date-from');
+                var t = document.getElementById(prefix + '-date-to');
+                if (f) f.value = '';
+                if (t) t.value = '';
+                updateTrackerSummaryDateClearBtn(type);
+                applyTrackerSummaryFilters(type);
+            });
+        }
+
+        var pageSizeEl = document.getElementById(prefix + '-page-size');
+        if (pageSizeEl) {
+            pageSizeEl.addEventListener('change', function () {
+                state.pageSize = parseInt(pageSizeEl.value, 10) || 25;
+                state.page = 1;
+                renderTrackerSummaryTable(type);
+            });
+        }
+    });
 
     var backBtn = document.getElementById('btn-back-reports');
     if (backBtn) {
@@ -5667,6 +6490,7 @@ function init() {
     enforceLogin();
     initProfileMenu();
     initNav();
+    initDiceFormaForms();
     initQuantity();
     initProductionDays();
     initBatchAuto();
