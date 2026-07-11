@@ -172,6 +172,10 @@
         <span class="nav-icon material-icons-round">assignment</span>
         <span class="nav-label">FMS Form</span>
       </a>
+      <a class="nav-item" data-page="dice-form" data-title="FORMA & DICE FORM" title="FORMA & DICE FORM">
+        <span class="nav-icon material-icons-round">inventory_2</span>
+        <span class="nav-label">FORMA &amp; DICE FORM</span>
+      </a>
       <a class="nav-item" data-page="batch-list" data-title="Production Data" title="Production Data">
         <span class="nav-icon material-icons-round">list_alt</span>
         <span class="nav-label">Production data</span>
@@ -651,7 +655,6 @@
               <div class="dt-info" id="cutting-data-info">Showing 0 of 0 entries</div>
               <div class="dt-pagination" id="cutting-data-pagination"></div>
             </div>
-
           </div>
         </div>
 
@@ -1045,6 +1048,16 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
+            <div class="kpi-card" id="kpi-dice-summary" role="button" tabindex="0" title="View Dice data summary">
+              <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">casino</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Dice Data Summary</div><div class="kpi-card-subtitle">View all submitted Dice tracker records</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+            <div class="kpi-card" id="kpi-forma-summary" role="button" tabindex="0" title="View Forma data summary">
+              <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">category</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Forma Data Summary</div><div class="kpi-card-subtitle">View all submitted Forma tracker records</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
 
           </div>
         </div>
@@ -1169,6 +1182,189 @@
           </div>
         </div>
 
+        <!-- ============================================================ -->
+        <!-- Dice Data Summary — Detail view                              -->
+        <!-- ============================================================ -->
+        <div id="reports-dice-summary-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back tracker-summary-back" type="button" title="Back to Reports">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Reports
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">casino</span>
+              Dice Data Summary
+            </div>
+            <button class="btn-excel-icon" id="btn-download-dice-summary-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-dice-summary" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="dice-summary-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="dice-summary-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label">Timestamp</label>
+                  <input type="date" id="dice-summary-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="dice-summary-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="dice-summary-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="dice-summary-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="dice-summary-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="dice-summary-table-wrap">
+              <div class="dt-empty-state" id="dice-summary-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="dice-summary-table" style="display:none;">
+                <thead id="dice-summary-thead"></thead>
+                <tbody id="dice-summary-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="dice-summary-footer" style="display:none;">
+              <div class="dt-info" id="dice-summary-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="dice-summary-pagination"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Forma Data Summary — Detail view                             -->
+        <!-- ============================================================ -->
+        <div id="reports-forma-summary-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back tracker-summary-back" type="button" title="Back to Reports">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Reports
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">category</span>
+              Forma Data Summary
+            </div>
+            <button class="btn-excel-icon" id="btn-download-forma-summary-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-forma-summary" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="forma-summary-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="forma-summary-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label">Timestamp</label>
+                  <input type="date" id="forma-summary-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="forma-summary-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="forma-summary-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="forma-summary-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="forma-summary-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="forma-summary-table-wrap">
+              <div class="dt-empty-state" id="forma-summary-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="forma-summary-table" style="display:none;">
+                <thead id="forma-summary-thead"></thead>
+                <tbody id="forma-summary-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="forma-summary-footer" style="display:none;">
+              <div class="dt-info" id="forma-summary-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="forma-summary-pagination"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- /page-reports -->
 
@@ -1411,6 +1607,74 @@
         <!-- /pdf-inline-qc-view -->
 
       </div>
+      <!-- ============================================================ -->
+      <!-- FORMA & DICE FORM PAGE                                      -->
+      <!-- ============================================================ -->
+      <div id="page-dice-form" class="page-view" style="display:none;">
+        <div id="forma-dice-menu" class="forma-dice-menu">
+          <div class="reports-header">
+            <div class="reports-header-icon"><span class="material-icons-round">inventory_2</span></div>
+            <div class="reports-header-text"><h1>FORMA &amp; DICE FORM</h1><p>Select a tracker form to submit</p></div>
+          </div>
+          <div class="kpi-grid forma-dice-cards">
+            <div class="kpi-card" id="open-dice-tracker" role="button" tabindex="0" title="Open Dice Tracker Form">
+              <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">casino</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Dice Tracker Form</div><div class="kpi-card-subtitle">Submit received dice details and attachments</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+            <div class="kpi-card" id="open-forma-tracker" role="button" tabindex="0" title="Open Forma Tracker Form">
+              <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">category</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Forma Tracker Form</div><div class="kpi-card-subtitle">Submit forma order and delivery details</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="dice-tracker-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" type="button" data-form-back><span class="material-icons-round">arrow_back_ios</span>Back to forms</button>
+            <div class="data-view-topbar-title"><span class="material-icons-round">casino</span>Dice Tracker Form</div>
+          </div>
+          <div class="page-card">
+            <div class="page-header"><div class="page-header-icon"><span class="material-icons-round">casino</span></div><div class="page-header-text"><h1>Dice Tracker Form</h1><p>Enter dice receiving and handover details</p></div></div>
+            <form id="dice-tracker-form" class="tracker-form" novalidate>
+              <div class="form-body"><div class="form-grid">
+                <div class="form-field col-span-2"><label class="field-label" for="dice-po-number">PO Number <span class="required">*</span></label><input class="field-input" id="dice-po-number" name="poNumber" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-style-number">Style Number <span class="required">*</span></label><input class="field-input" id="dice-style-number" name="styleNumber" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-quantity">Dice Quantity <span class="required">*</span></label><input class="field-input" id="dice-quantity" name="diceQuantity" type="number" min="0" step="1" inputmode="numeric" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-receiving-person">Receiving Person <span class="required">*</span></label><input class="field-input" id="dice-receiving-person" name="receivingPerson" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-received-date">Received Date <span class="required">*</span></label><input class="field-input" id="dice-received-date" name="receivedDate" type="date" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-handover-date">Handover Date <span class="required">*</span></label><input class="field-input" id="dice-handover-date" name="handoverDate" type="date" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="dice-attachment">Dice Attachment</label><input class="tracker-file-input" id="dice-attachment" name="attachments" type="file" multiple><label class="attachment-dropzone" id="dice-attachment-dropzone" for="dice-attachment"><span class="material-icons-round attachment-dropzone-icon">cloud_upload</span><span class="attachment-dropzone-copy"><strong>Drag &amp; drop files here</strong><small>or click to browse &mdash; multiple files supported</small></span></label><span class="tracker-help" id="dice-attachment-name">No file selected</span></div>
+              </div></div>
+              <div class="form-actions"><button class="btn-reset" type="reset">Reset</button><button class="btn-submit" type="submit"><span class="material-icons-round">send</span>Submit Dice Details</button></div>
+            </form>
+          </div>
+        </div>
+
+        <div id="forma-tracker-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" type="button" data-form-back><span class="material-icons-round">arrow_back_ios</span>Back to forms</button>
+            <div class="data-view-topbar-title"><span class="material-icons-round">category</span>Forma Tracker Form</div>
+          </div>
+          <div class="page-card">
+            <div class="page-header"><div class="page-header-icon"><span class="material-icons-round">category</span></div><div class="page-header-text"><h1>Forma Tracker Form</h1><p>Enter forma order and delivery details</p></div></div>
+            <form id="forma-tracker-form" class="tracker-form" novalidate>
+              <div class="form-body"><div class="form-grid">
+                <div class="form-field col-span-2"><label class="field-label" for="forma-buyer-name">Buyer Name <span class="required">*</span></label><input class="field-input" id="forma-buyer-name" name="buyerName" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-sample-maker">Sample Maker Name <span class="required">*</span></label><input class="field-input" id="forma-sample-maker" name="sampleMakerName" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-style-number">Style Number <span class="required">*</span></label><input class="field-input" id="forma-style-number" name="styleNumber" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-quantity">Forma Quantity (pcs) <span class="required">*</span></label><input class="field-input" id="forma-quantity" name="formaQuantity" type="number" min="0" step="1" inputmode="numeric" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-po-number">PO Number <span class="required">*</span></label><input class="field-input" id="forma-po-number" name="poNumber" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-po-date">PO Date <span class="required">*</span></label><input class="field-input" id="forma-po-date" name="poDate" type="date" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-supplier-name">Supplier Name <span class="required">*</span></label><input class="field-input" id="forma-supplier-name" name="supplierName" type="text" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-eta">ETA <span class="required">*</span></label><input class="field-input" id="forma-eta" name="eta" type="date" required></div>
+                <div class="form-field col-span-2"><label class="field-label" for="forma-attachment">Forma Attachment</label><input class="tracker-file-input" id="forma-attachment" name="attachments" type="file" multiple><label class="attachment-dropzone" id="forma-attachment-dropzone" for="forma-attachment"><span class="material-icons-round attachment-dropzone-icon">cloud_upload</span><span class="attachment-dropzone-copy"><strong>Drag &amp; drop files here</strong><small>or click to browse &mdash; multiple files supported</small></span></label><span class="tracker-help" id="forma-attachment-name">No file selected</span></div>
+              </div></div>
+              <div class="form-actions"><button class="btn-reset" type="reset">Reset</button><button class="btn-submit" type="submit"><span class="material-icons-round">send</span>Submit Forma Details</button></div>
+            </form>
+          </div>
+        </div>
       </div>
     </main>
   </div>
