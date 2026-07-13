@@ -104,6 +104,267 @@ function initProfileMenu() {
 }
 
 // ---------------------------------------------------------------------------
+// Topbar Calendar — clean month view popover, opened from the calendar icon
+// in the header. Sundays are highlighted; today and any clicked date are
+// marked distinctly. Subtle fade/slide animations on open and month change.
+// ---------------------------------------------------------------------------
+function initTopbarCalendar() {
+    var wrap  = document.getElementById('topbar-calendar-wrap');
+    var btn   = document.getElementById('topbar-calendar-btn');
+    var panel = document.getElementById('topbar-calendar');
+    if (!wrap || !btn || !panel) return;
+
+    var monthSelect  = document.getElementById('calendar-month-select');
+    var yearSelect   = document.getElementById('calendar-year-select');
+    var daysGrid     = document.getElementById('calendar-days');
+    var prevBtn      = document.getElementById('calendar-prev-btn');
+    var nextBtn      = document.getElementById('calendar-next-btn');
+    var todayBtn     = document.getElementById('calendar-today-btn');
+    var selectedLbl  = document.getElementById('calendar-selected-label');
+
+    var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    var WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    var today = new Date();
+    var view  = { month: today.getMonth(), year: today.getFullYear() };
+    var selected = null; // { day, month, year }
+
+    MONTH_NAMES.forEach(function (name, idx) {
+        var opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = name;
+        monthSelect.appendChild(opt);
+    });
+
+    var yearStart = today.getFullYear() - 10;
+    var yearEnd   = today.getFullYear() + 10;
+    for (var y = yearStart; y <= yearEnd; y++) {
+        var yOpt = document.createElement('option');
+        yOpt.value = String(y);
+        yOpt.textContent = String(y);
+        yearSelect.appendChild(yOpt);
+    }
+
+    function formatSelectedLabel() {
+        if (selected) {
+            var sd = new Date(selected.year, selected.month, selected.day);
+            selectedLbl.textContent = WEEKDAY_NAMES[sd.getDay()].slice(0, 3) + ', ' +
+                MONTH_NAMES[selected.month].slice(0, 3) + ' ' + selected.day + ', ' + selected.year;
+        } else {
+            selectedLbl.textContent = 'Today: ' + WEEKDAY_NAMES[today.getDay()].slice(0, 3) + ', ' +
+                MONTH_NAMES[today.getMonth()].slice(0, 3) + ' ' + today.getDate() + ', ' + today.getFullYear();
+        }
+    }
+
+    function render() {
+        monthSelect.value = String(view.month);
+        yearSelect.value  = String(view.year);
+
+        daysGrid.innerHTML = '';
+        daysGrid.classList.remove('calendar-days-anim');
+        void daysGrid.offsetWidth; // restart the fade-in animation on every render
+        daysGrid.classList.add('calendar-days-anim');
+
+        var firstOfMonth  = new Date(view.year, view.month, 1);
+        var startWeekday  = firstOfMonth.getDay(); // 0 = Sunday
+        var daysInMonth   = new Date(view.year, view.month + 1, 0).getDate();
+
+        for (var i = 0; i < startWeekday; i++) {
+            var empty = document.createElement('span');
+            empty.className = 'calendar-day is-empty';
+            daysGrid.appendChild(empty);
+        }
+
+        var _loop = function (day) {
+            var dayBtn = document.createElement('button');
+            dayBtn.type = 'button';
+            dayBtn.className = 'calendar-day';
+            dayBtn.textContent = String(day);
+
+            var weekday = new Date(view.year, view.month, day).getDay();
+            if (weekday === 0) dayBtn.classList.add('is-sunday');
+
+            var isToday = (view.year === today.getFullYear() && view.month === today.getMonth() && day === today.getDate());
+            if (isToday) dayBtn.classList.add('is-today');
+
+            var isSelected = selected && selected.year === view.year && selected.month === view.month && selected.day === day;
+            if (isSelected) dayBtn.classList.add('is-selected');
+
+            dayBtn.addEventListener('click', function () {
+                selected = { day: day, month: view.month, year: view.year };
+                formatSelectedLabel();
+                render();
+            });
+
+            daysGrid.appendChild(dayBtn);
+        };
+        for (var day = 1; day <= daysInMonth; day++) _loop(day);
+    }
+
+    function open() {
+        panel.hidden = false;
+        wrap.classList.add('calendar-open');
+        btn.setAttribute('aria-expanded', 'true');
+        render();
+    }
+
+    function close() {
+        panel.hidden = true;
+        wrap.classList.remove('calendar-open');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (panel.hidden) open(); else close();
+    });
+
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    document.addEventListener('click', function () {
+        if (!panel.hidden) close();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) close();
+    });
+
+    monthSelect.addEventListener('change', function () {
+        view.month = Number(monthSelect.value);
+        render();
+    });
+    yearSelect.addEventListener('change', function () {
+        view.year = Number(yearSelect.value);
+        render();
+    });
+
+    prevBtn.addEventListener('click', function () {
+        view.month--;
+        if (view.month < 0) { view.month = 11; view.year--; }
+        render();
+    });
+    nextBtn.addEventListener('click', function () {
+        view.month++;
+        if (view.month > 11) { view.month = 0; view.year++; }
+        render();
+    });
+
+    todayBtn.addEventListener('click', function () {
+        view.month = today.getMonth();
+        view.year  = today.getFullYear();
+        render();
+    });
+
+    formatSelectedLabel();
+}
+
+// ---------------------------------------------------------------------------
+// Birthday Celebration — colorful header + confetti animation shown ONLY to
+// the logged-in user whose birthday (USERS sheet, Column G) is today.
+// Re-checked periodically so it turns on/off right at the day boundary even
+// if the tab is left open across midnight.
+// ---------------------------------------------------------------------------
+var BIRTHDAY_TOAST_KEY = 'fms_birthday_toast_shown';
+var BIRTHDAY_RECHECK_MS = 15 * 60 * 1000; // 15 minutes
+
+var BIRTHDAY_CONFETTI_COLORS = ['#d9b96a', '#e8c4c4', '#a9b8d4', '#b7c9a8', '#e8ddc0'];
+
+function renderBirthdayConfetti(topbar) {
+    if (!topbar || topbar.querySelector('.birthday-header-confetti')) return;
+    var layer = document.createElement('div');
+    layer.className = 'birthday-header-confetti';
+    var pieces = 12;
+    for (var i = 0; i < pieces; i++) {
+        var piece = document.createElement('i');
+        var color = BIRTHDAY_CONFETTI_COLORS[i % BIRTHDAY_CONFETTI_COLORS.length];
+        var left  = Math.min(98, Math.max(0, Math.round((i / pieces) * 100 + (Math.random() * 4 - 2))));
+        var drift = Math.round(Math.random() * 40 - 20) + 'px';
+        var delay = (Math.random() * 4.6).toFixed(2) + 's';
+        piece.style.left = left + '%';
+        piece.style.setProperty('--confetti-color', color);
+        piece.style.setProperty('--confetti-drift', drift);
+        piece.style.setProperty('--confetti-delay', delay);
+        layer.appendChild(piece);
+    }
+    topbar.appendChild(layer);
+}
+
+function renderBirthdayBanner(topbar, displayName) {
+    if (!topbar || topbar.querySelector('.birthday-banner')) return;
+    var banner = document.createElement('div');
+    banner.className = 'birthday-banner';
+    banner.innerHTML =
+        '<span class="birthday-banner-emoji">🎉</span>' +
+        '<span class="birthday-banner-text">Happy Birthday' + (displayName ? ', ' + esc(displayName) : '') + '!</span>' +
+        '<span class="birthday-banner-emoji bb-emoji-2">🎂</span>';
+
+    // Insert as a normal flex child right after the title (and before the
+    // notification/profile actions) so it never overlaps other header items.
+    var actions = topbar.querySelector('.topbar-actions');
+    if (actions && actions.parentNode === topbar) {
+        topbar.insertBefore(banner, actions);
+    } else {
+        topbar.appendChild(banner);
+    }
+}
+
+function applyBirthdayCelebration(displayName) {
+    var topbar = document.querySelector('.topbar');
+    if (!topbar) return;
+    topbar.classList.add('birthday-active');
+    renderBirthdayConfetti(topbar);
+    renderBirthdayBanner(topbar, displayName);
+
+    var alreadyToasted = false;
+    try { alreadyToasted = sessionStorage.getItem(BIRTHDAY_TOAST_KEY) === '1'; } catch (e) {}
+    if (!alreadyToasted) {
+        showToast('success', '🎉 Happy Birthday' + (displayName ? ', ' + displayName : '') + '!', 'Wishing you a wonderful day ahead.');
+        try { sessionStorage.setItem(BIRTHDAY_TOAST_KEY, '1'); } catch (e) {}
+    }
+}
+
+function removeBirthdayCelebration() {
+    var topbar = document.querySelector('.topbar');
+    if (!topbar) return;
+    topbar.classList.remove('birthday-active');
+    var layer = topbar.querySelector('.birthday-header-confetti');
+    if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+    var banner = topbar.querySelector('.birthday-banner');
+    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+}
+
+function initBirthdayCelebration() {
+    var user = getSession();
+    if (!user) return;
+
+    function handleResult(result) {
+        if (result && result.success && result.isBirthday) {
+            applyBirthdayCelebration(result.username || user);
+        } else {
+            removeBirthdayCelebration();
+        }
+    }
+
+    function check() {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(handleResult)
+                .withFailureHandler(function () {})
+                .checkUserBirthday(user);
+            return;
+        }
+        jsonp({ action: 'checkUserBirthday', username: user }, function (err, result) {
+            if (err) return;
+            handleResult(result);
+        });
+    }
+
+    check();
+    setInterval(check, BIRTHDAY_RECHECK_MS);
+}
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 var dropdownData = {};
@@ -652,6 +913,10 @@ function initNav() {
         var titleEl = document.getElementById('topbar-title');
         if (titleEl) titleEl.textContent = item.getAttribute('data-title') || 'FMS FORM';
 
+        // Replay the welcome hero animation each time Home is opened
+        if (page === 'home') {
+        initHomeHero();
+        }
         // Reset reports to KPI view when navigating to Reports
         if (page === 'reports') {
         showReportsKpiView();
@@ -673,6 +938,179 @@ function initNav() {
         logoutUser();
     });
     }
+}
+
+// ---------------------------------------------------------------------------
+// Home — welcome hero animations (fade-in stagger + typing effect)
+// ---------------------------------------------------------------------------
+var HOME_WELCOME_MESSAGE = "Welcome back to FMS Workspace. We're glad to have you here. Stay organized, stay informed, and let's achieve excellence together.";
+var homeTypeTimer = null;
+
+function typeHomeWelcomeMessage() {
+    var textEl = document.getElementById('home-welcome-text');
+    var cursor = document.getElementById('home-welcome-cursor');
+    if (!textEl) return;
+    if (homeTypeTimer) { clearInterval(homeTypeTimer); homeTypeTimer = null; }
+
+    var message = HOME_WELCOME_MESSAGE;
+    var i = 0;
+    textEl.textContent = '';
+    if (cursor) textEl.appendChild(cursor);
+
+    homeTypeTimer = setInterval(function () {
+        i++;
+        textEl.textContent = message.slice(0, i);
+        if (cursor) textEl.appendChild(cursor);
+        if (i >= message.length) {
+            clearInterval(homeTypeTimer);
+            homeTypeTimer = null;
+        }
+    }, 16);
+}
+
+function initHomeHero() {
+    var hero = document.getElementById('home-hero');
+    if (!hero) return;
+
+    var nameEl = document.getElementById('home-greeting-name');
+    if (nameEl) nameEl.textContent = currentSubmitter() || 'there';
+
+    // Restart the entrance animation every time Home is opened
+    hero.classList.remove('is-active');
+    void hero.offsetWidth; // force reflow so the animation can replay
+    hero.classList.add('is-active');
+
+    // Typing effect starts once the welcome card has faded in
+    setTimeout(typeHomeWelcomeMessage, 650);
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar customization — every module can be shown or hidden from Settings.
+// 6 items are ON by default for new users; the rest start OFF. Choices are
+// remembered per-user in localStorage.
+// ---------------------------------------------------------------------------
+var ALL_NAV_ITEMS = [
+    { page: 'dashboard',      label: 'Dashboard',           icon: 'dashboard',                defaultOn: false },
+    { page: 'fms-form',       label: 'FMS Form',            icon: 'assignment',               defaultOn: true },
+    { page: 'dice-form',      label: 'FORMA & DICE FORM',   icon: 'inventory_2',              defaultOn: true },
+    { page: 'batch-list',     label: 'Production Data',     icon: 'list_alt',                 defaultOn: true },
+    { page: 'reports',        label: 'Reports',             icon: 'bar_chart',                defaultOn: true },
+    { page: 'pdf',            label: 'PDF',                 icon: 'picture_as_pdf',           defaultOn: true },
+    { page: 'warehouse',      label: 'Warehouse',           icon: 'warehouse',                defaultOn: false },
+    { page: 'machine',        label: 'Machine',             icon: 'precision_manufacturing',  defaultOn: false },
+    { page: 'ot-leave',       label: 'OT & Leave',          icon: 'event_available',          defaultOn: false },
+    { page: 'purchase',       label: 'Purchase',            icon: 'request_quote',            defaultOn: false },
+    { page: 'maintenance',    label: 'Maintenance',         icon: 'build',                    defaultOn: false },
+    { page: 'batch-analysis', label: 'Batch Analysis',      icon: 'query_stats',              defaultOn: false },
+    { page: 'ims',            label: 'IMS',                 icon: 'fact_check',               defaultOn: false }
+];
+
+function defaultEnabledPages() {
+    return ALL_NAV_ITEMS.filter(function (item) { return item.defaultOn; })
+                         .map(function (item) { return item.page; });
+}
+
+function sidebarPrefsKey() {
+    return 'fms_sidebar_prefs_' + (currentSubmitter() || 'guest');
+}
+
+// Returns the saved preference list if the user has ever changed anything;
+// otherwise falls back to the built-in defaults (6 core items ON).
+function getEffectiveSidebarPrefs() {
+    try {
+        var raw = localStorage.getItem(sidebarPrefsKey());
+        if (raw === null) return defaultEnabledPages();
+        var arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : defaultEnabledPages();
+    } catch (e) { return defaultEnabledPages(); }
+}
+
+function saveSidebarPrefs(pages) {
+    try { localStorage.setItem(sidebarPrefsKey(), JSON.stringify(pages)); } catch (e) {}
+}
+
+function applySidebarPrefs() {
+    var prefs = getEffectiveSidebarPrefs();
+    var activeHidden = false;
+
+    document.querySelectorAll('.nav-item-toggle').forEach(function (item) {
+        var page = item.getAttribute('data-page');
+        var enabled = prefs.indexOf(page) !== -1;
+        item.style.display = enabled ? '' : 'none';
+        if (!enabled && item.classList.contains('active')) activeHidden = true;
+    });
+
+    // If the page currently on screen just got hidden, jump to the first
+    // still-visible item (or Settings, as the last resort).
+    if (activeHidden) {
+        var fallback = Array.prototype.find.call(
+            document.querySelectorAll('.nav-item-toggle'),
+            function (el) { return el.style.display !== 'none'; }
+        );
+        if (!fallback) fallback = document.querySelector('.nav-item[data-page="home"]');
+        if (!fallback) fallback = document.querySelector('.nav-item[data-page="settings"]');
+        if (fallback) fallback.click();
+    }
+}
+
+function buildSidebarSettingsUI() {
+    var grid = document.getElementById('sidebar-toggle-grid');
+    if (!grid) return;
+    var prefs = getEffectiveSidebarPrefs();
+
+    grid.innerHTML = '';
+    ALL_NAV_ITEMS.forEach(function (opt) {
+        var isOn = prefs.indexOf(opt.page) !== -1;
+
+        var card = document.createElement('label');
+        card.className = 'sidebar-toggle-card' + (isOn ? ' is-on' : '');
+        card.setAttribute('for', 'sidebar-toggle-' + opt.page);
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'sidebar-toggle-icon';
+        iconWrap.innerHTML = '<span class="material-icons-round">' + opt.icon + '</span>';
+
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'sidebar-toggle-label';
+        labelSpan.textContent = opt.label;
+
+        if (opt.defaultOn) {
+            var badge = document.createElement('span');
+            badge.className = 'sidebar-toggle-default-badge';
+            badge.textContent = 'Default';
+            labelSpan.appendChild(document.createElement('br'));
+            labelSpan.appendChild(badge);
+        }
+
+        var switchWrap = document.createElement('span');
+        switchWrap.className = 'toggle-switch';
+        switchWrap.innerHTML =
+            '<input type="checkbox" id="sidebar-toggle-' + opt.page + '" data-page="' + opt.page + '"' + (isOn ? ' checked' : '') + '>' +
+            '<span class="toggle-switch-track"></span>';
+
+        card.appendChild(iconWrap);
+        card.appendChild(labelSpan);
+        card.appendChild(switchWrap);
+        grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('input[type="checkbox"]').forEach(function (checkbox) {
+        checkbox.addEventListener('change', function () {
+            var page = checkbox.getAttribute('data-page');
+            var prefs = getEffectiveSidebarPrefs().slice();
+            var idx = prefs.indexOf(page);
+            if (checkbox.checked && idx === -1) prefs.push(page);
+            if (!checkbox.checked && idx !== -1) prefs.splice(idx, 1);
+            saveSidebarPrefs(prefs);
+            applySidebarPrefs();
+            checkbox.closest('.sidebar-toggle-card').classList.toggle('is-on', checkbox.checked);
+        });
+    });
+}
+
+function initSidebarCustomization() {
+    applySidebarPrefs();
+    buildSidebarSettingsUI();
 }
 
 // ---------------------------------------------------------------------------
@@ -1505,6 +1943,120 @@ function fetchTrackerAttachmentImages(fileIds) {
                 return images;
             }, {});
         });
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper — builds a true .xlsx workbook (via ExcelJS) from a headers/
+// rows table and triggers the download. Used by every "Download Excel"
+// button in the app so all exports are real .xlsx files (not SpreadsheetML
+// .xls files renamed with an .xlsx-looking name).
+// ---------------------------------------------------------------------------
+function exportRowsToXlsx(options) {
+    var headers         = options.headers || [];
+    var rows            = options.rows || [];
+    var sheetName       = options.sheetName || 'Sheet1';
+    var filenamePrefix  = options.filenamePrefix || 'Export';
+    var headerGroups    = options.headerGroups || [];
+    var useFormatCellValue = !!options.useFormatCellValue;
+
+    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return Promise.resolve(); }
+
+    var border      = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+    var groupBorder = { style: 'thin', color: { argb: 'FFBFDBFE' } };
+    var groupFills  = ['FFDBEAFE', 'FFE0F2FE', 'FFECFDF5'];
+
+    return loadExcelJs().then(function (ExcelJS) {
+        var workbook  = new ExcelJS.Workbook();
+        var worksheet = workbook.addWorksheet(sheetName);
+
+        worksheet.columns = [{ width: 6 }].concat(headers.map(function () { return { width: 20 }; }));
+
+        // Optional merged group-header rows (e.g. Floor Supervisor QC column groups)
+        headerGroups.forEach(function (groupRow, rowIndex) {
+            var fillColor = groupFills[Math.min(rowIndex, groupFills.length - 1)];
+            var excelRow  = worksheet.addRow([rowIndex === 0 ? '#' : '']);
+            excelRow.height = 28;
+
+            var cornerCell = excelRow.getCell(1);
+            cornerCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+            cornerCell.border    = { top: groupBorder, left: groupBorder, bottom: groupBorder, right: groupBorder };
+            cornerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cornerCell.font      = { bold: true, color: { argb: 'FF1E3A5F' } };
+
+            var col = 2;
+            groupRow.forEach(function (group) {
+                var span     = Math.max(parseInt(group.colspan, 10) || 1, 1);
+                var startCol = col;
+                var endCol   = col + span - 1;
+                var cell     = excelRow.getCell(startCol);
+                cell.value = group.label || '';
+                if (span > 1) worksheet.mergeCells(excelRow.number, startCol, excelRow.number, endCol);
+                for (var c = startCol; c <= endCol; c++) {
+                    var mergedCell = excelRow.getCell(c);
+                    mergedCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+                    mergedCell.border    = { top: groupBorder, left: groupBorder, bottom: groupBorder, right: groupBorder };
+                    mergedCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    mergedCell.font      = { bold: true, color: { argb: 'FF1E3A5F' } };
+                }
+                col = endCol + 1;
+            });
+        });
+
+        // Header row
+        var headerRow = worksheet.addRow(['#'].concat(headers));
+        headerRow.height = 22;
+        headerRow.eachCell(function (cell) {
+            cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cell.border    = { top: border, left: border, bottom: border, right: border };
+        });
+
+        // Data rows
+        rows.forEach(function (row, idx) {
+            var exportedRow = [idx + 1].concat(headers.map(function (header, ci) {
+                var raw = row[ci];
+                return useFormatCellValue ? formatCellValue(header, raw) : String(raw !== undefined && raw !== null ? raw : '');
+            }));
+            var excelRow = worksheet.addRow(exportedRow);
+            excelRow.height = 18;
+            excelRow.eachCell(function (cell, colNumber) {
+                var isRowNumCol = colNumber === 1;
+                cell.alignment = { vertical: 'middle', wrapText: true, horizontal: isRowNumCol ? 'center' : undefined };
+                cell.border    = { top: border, left: border, bottom: border, right: border };
+                if (isRowNumCol) {
+                    cell.font = { color: { argb: 'FF94A3B8' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                    return;
+                }
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } };
+
+                // Batch ID and other zero-padded values must stay text to preserve leading zeros
+                var header      = headers[colNumber - 2];
+                var h            = (header || '').trim().toLowerCase();
+                var forceString  = useFormatCellValue && h === 'batch id';
+                var val          = cell.value;
+                var num          = Number(val);
+                var isNum        = !forceString && val !== '' && val !== null && val !== undefined && !isNaN(num) && isFinite(num);
+                if (isNum) cell.value = num;
+            });
+        });
+
+        return workbook.xlsx.writeBuffer();
+    }).then(function (buffer) {
+        var now      = new Date();
+        var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
+        var filename = filenamePrefix + '_' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.xlsx';
+        var blob     = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var url      = URL.createObjectURL(blob);
+        var anchor   = document.createElement('a');
+        anchor.href = url; anchor.download = filename; anchor.style.display = 'none';
+        document.body.appendChild(anchor); anchor.click();
+        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(anchor); }, 300);
+        showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
+    }).catch(function (err) {
+        showToast('error', 'Excel Download Failed', err && err.message ? err.message : 'Could not create the Excel file.');
+    });
 }
 
 function downloadTrackerSummaryExcel(type) {
@@ -2476,154 +3028,19 @@ function updateDateClearBtn() {
 }
 
 // ---------------------------------------------------------------------------
-// Excel export — SpreadsheetML (.xls) format, no external libraries
+// Excel export — true .xlsx workbook via ExcelJS (shared exportRowsToXlsx helper)
 // Exports only the currently filtered records (respects all active filters)
 // ---------------------------------------------------------------------------
 function downloadExcel() {
     var headers = fmsTableData.headers;
     var rows    = fmsTableData.filteredRows;
-
-    if (!headers.length && !rows.length) {
-    showToast('info', 'No Data', 'There is no data to export.');
-    return;
-    }
-
-    // Build SpreadsheetML XML
-    var xml = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<?mso-application progid="Excel.Sheet"?>',
-    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-    '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-    '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-    '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-    '  <Styles>',
-    '    <Style ss:ID="Header">',
-    '      <Font ss:Bold="1" ss:Color="#FFFFFF"/>',
-    '      <Interior ss:Color="#1A73E8" ss:Pattern="Solid"/>',
-    '      <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>',
-    '      <Borders>',
-    '        <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/>',
-    '        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/>',
-    '        <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/>',
-    '        <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/>',
-    '      </Borders>',
-    '    </Style>',
-    '    <Style ss:ID="RowEven">',
-    '      ',
-    '      <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>',
-    '      <Alignment ss:Vertical="Center" ss:WrapText="1"/>',
-    '      <Borders>',
-    '        <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '      </Borders>',
-    '    </Style>',
-    '    <Style ss:ID="RowOdd">',
-    '      ',
-    '      <Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/>',
-    '      <Alignment ss:Vertical="Center" ss:WrapText="1"/>',
-    '      <Borders>',
-    '        <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '      </Borders>',
-    '    </Style>',
-    '    <Style ss:ID="RowNum">',
-    '      <Font ss:Color="#94A3B8"/>',
-    '      <Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/>',
-    '      <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>',
-    '      <Borders>',
-    '        <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '        <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>',
-    '      </Borders>',
-    '    </Style>',
-    '  </Styles>',
-    '  <Worksheet ss:Name="Submitted FMS Data">',
-    '    <Table>'
-    ];
-
-    // Column widths
-    xml.push('      <Column ss:Width="40"/>'); // # column
-    headers.forEach(function () {
-    xml.push('      <Column ss:Width="130"/>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Submitted FMS Data',
+        filenamePrefix: 'Submitted_FMS_Data',
+        useFormatCellValue: true
     });
-
-    // Header row
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) {
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>');
-    });
-    xml.push('      </Row>');
-
-    // Data rows
-    rows.forEach(function (row, idx) {
-    var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-    xml.push('      <Row ss:Height="18">');
-    xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-    headers.forEach(function (header, ci) {
-        var cell = formatCellValue(header, row[ci]);
-        // Batch ID and other zero-padded values must stay as String to preserve leading zeros
-        var h = (header || '').trim().toLowerCase();
-        var forceString = (h === 'batch id');
-        var num = Number(cell);
-        var isNum = !forceString && cell !== '' && !isNaN(num) && isFinite(num);
-        if (isNum) {
-        xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-        } else {
-        xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-        }
-    });
-    xml.push('      </Row>');
-    });
-
-    xml.push('    </Table>');
-    xml.push('  </Worksheet>');
-    xml.push('</Workbook>');
-
-    var content = xml.join('\n');
-
-    // Build filename: Submitted_FMS_Data_YYYYMMDD.xls
-    var now = new Date();
-    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Submitted_FMS_Data_' + dateStr + '.xls';
-
-    // Trigger download — works on desktop and mobile browsers
-    try {
-    var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () {
-        URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-    }, 300);
-    } catch (e) {
-    // Fallback for older mobile browsers: data URI
-    var dataUri = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content);
-    window.open(dataUri, '_blank');
-    }
-
-    var count = rows.length;
-    showToast('success', 'Download Started', count + ' row' + (count !== 1 ? 's' : '') + ' exported to ' + filename);
-}
-
-function xmlEsc(str) {
-    return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 // ---------------------------------------------------------------------------
@@ -2921,6 +3338,10 @@ function showBatchListKpiView() {
     if (floorQcView) floorQcView.style.display = 'none';
     if (edgePaintView) edgePaintView.style.display = 'none';
     if (preAqlView) preAqlView.style.display = 'none';
+    // New subviews added in main.js carry the 'batch-list-extra-view' class
+    // and get hidden here too, so navigating back to the Production Data KPI
+    // grid always resets ALL subviews, including ones defined outside this file.
+    document.querySelectorAll('.batch-list-extra-view').forEach(function (v) { v.style.display = 'none'; });
 }
 
 function showPdfKpiView() {
@@ -3378,62 +3799,12 @@ function updateCuttingSearchClearBtn() {
 function downloadCuttingExcel() {
     var headers = cuttingTableData.headers;
     var rows    = cuttingTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Batch Cutting Details">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Batch Cutting Details',
+        filenamePrefix: 'Batch_Cutting_Details'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Batch_Cutting_Details_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 // ---------------------------------------------------------------------------
@@ -3870,75 +4241,13 @@ function buildFloorQcPagination(current, total) {
 function downloadFloorQcExcel() {
     var headers = floorQcTableData.headers;
     var rows    = floorQcTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="Group0"><Font ss:Bold="1" ss:Color="#1E3A5F"/><Interior ss:Color="#DBEAFE" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/></Borders></Style>',
-        '    <Style ss:ID="Group1"><Font ss:Bold="1" ss:Color="#1E3A5F"/><Interior ss:Color="#E0F2FE" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/></Borders></Style>',
-        '    <Style ss:ID="Group2"><Font ss:Bold="1" ss:Color="#1E3A5F"/><Interior ss:Color="#ECFDF5" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Floor Supervisor QC">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    (floorQcTableData.headerGroups || []).forEach(function (groupRow, rowIndex) {
-        var groupStyle = 'Group' + Math.min(rowIndex, 2);
-        xml.push('      <Row ss:Height="28">');
-        xml.push('        <Cell ss:StyleID="' + groupStyle + '"><Data ss:Type="String">' + (rowIndex === 0 ? '#' : '') + '</Data></Cell>');
-        groupRow.forEach(function (group) {
-            var span = Math.max(parseInt(group.colspan, 10) || 1, 1);
-            xml.push('        <Cell ss:StyleID="' + groupStyle + '" ss:MergeAcross="' + (span - 1) + '"><Data ss:Type="String">' + xmlEsc(group.label || '') + '</Data></Cell>');
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Floor Supervisor QC',
+        filenamePrefix: 'Floor_Supervisor_In_Line_QC_Details',
+        headerGroups: floorQcTableData.headerGroups || []
     });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
-    });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Floor_Supervisor_In_Line_QC_Details_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 // ===========================================================================
@@ -4302,62 +4611,12 @@ function buildEdgePaintPagination(current, total) {
 function downloadEdgePaintExcel() {
     var headers = edgePaintTableData.headers;
     var rows    = edgePaintTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Edge Paint Details">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Edge Paint Details',
+        filenamePrefix: 'Edge_Paint_Details'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Edge_Paint_Details_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 // ===========================================================================
@@ -4721,62 +4980,12 @@ function buildPreAqlPagination(current, total) {
 function downloadPreAqlExcel() {
     var headers = preAqlTableData.headers;
     var rows    = preAqlTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Pre-AQL Details">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Pre-AQL Details',
+        filenamePrefix: 'Pre_AQL_Details'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Pre_AQL_Details_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 
@@ -5540,62 +5749,12 @@ function buildBantalaPagination(current, total) {
 function downloadBantalaExcel() {
     var headers = bantalaTableData.headers;
     var rows    = bantalaTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Bantala Details">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Bantala Details',
+        filenamePrefix: 'Bantala_Details'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Bantala_Details_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 // ===========================================================================
@@ -5982,62 +6141,12 @@ function buildFsPagination(current, total) {
 function downloadFsExcel() {
     var headers = fsTableData.headers;
     var rows    = fsTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="Floor Supervisor">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Floor Supervisor',
+        filenamePrefix: 'Floor_Supervisor'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'Floor_Supervisor_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 
@@ -6425,62 +6534,12 @@ function buildIqcPagination(current, total) {
 function downloadIqcExcel() {
     var headers = iqcTableData.headers;
     var rows    = iqcTableData.filteredRows;
-    if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return; }
-    var xml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<?mso-application progid="Excel.Sheet"?>',
-        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-        '  xmlns:o="urn:schemas-microsoft-com:office:office"',
-        '  xmlns:x="urn:schemas-microsoft-com:office:excel"',
-        '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-        '  <Styles>',
-        '    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1A73E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1558B0"/></Borders></Style>',
-        '    <Style ss:ID="RowEven"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowOdd"><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '    <Style ss:ID="RowNum"><Font ss:Color="#94A3B8"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>',
-        '  </Styles>',
-        '  <Worksheet ss:Name="In-Line QC">',
-        '    <Table>'
-    ];
-    xml.push('      <Column ss:Width="40"/>');
-    headers.forEach(function () { xml.push('      <Column ss:Width="130"/>'); });
-    xml.push('      <Row ss:Height="22">');
-    xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell>');
-    headers.forEach(function (h) { xml.push('        <Cell ss:StyleID="Header"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'); });
-    xml.push('      </Row>');
-    rows.forEach(function (row, idx) {
-        var style = idx % 2 === 0 ? 'RowEven' : 'RowOdd';
-        xml.push('      <Row ss:Height="18">');
-        xml.push('        <Cell ss:StyleID="RowNum"><Data ss:Type="Number">' + (idx + 1) + '</Data></Cell>');
-        headers.forEach(function (header, ci) {
-            var cell  = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
-            var num   = Number(cell);
-            var isNum = cell !== '' && !isNaN(num) && isFinite(num);
-            if (isNum) {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="Number">' + num + '</Data></Cell>');
-            } else {
-                xml.push('        <Cell ss:StyleID="' + style + '"><Data ss:Type="String">' + xmlEsc(cell) + '</Data></Cell>');
-            }
-        });
-        xml.push('      </Row>');
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'In-Line QC',
+        filenamePrefix: 'InLine_QC'
     });
-    xml.push('    </Table></Worksheet></Workbook>');
-    var content  = xml.join('\n');
-    var now      = new Date();
-    var pad      = function (n) { return n < 10 ? '0' + n : '' + n; };
-    var dateStr  = now.getFullYear() + '' + pad(now.getMonth() + 1) + '' + pad(now.getDate());
-    var filename = 'InLine_QC_' + dateStr + '.xls';
-    try {
-        var blob = new Blob(['\uFEFF' + content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href = url; a.download = filename; a.style.display = 'none';
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 300);
-    } catch (e) {
-        window.open('data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent('\uFEFF' + content), '_blank');
-    }
-    showToast('success', 'Download Started', rows.length + ' row' + (rows.length !== 1 ? 's' : '') + ' exported to ' + filename);
 }
 
 // ---------------------------------------------------------------------------
@@ -6489,7 +6548,11 @@ function downloadIqcExcel() {
 function init() {
     enforceLogin();
     initProfileMenu();
+    initTopbarCalendar();
+    initBirthdayCelebration();
     initNav();
+    initSidebarCustomization();
+    initHomeHero();
     initDiceFormaForms();
     initQuantity();
     initProductionDays();
@@ -6705,5 +6768,22 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+// ---------------------------------------------------------------------------
+// Shared helpers exposed for main.js (all new feature code lives there —
+// see main.js). Nothing else in this file changes behavior.
+// ---------------------------------------------------------------------------
+window.FMS = {
+    jsonp:            jsonp,
+    showSpinner:      showSpinner,
+    hideSpinner:      hideSpinner,
+    showToast:        showToast,
+    esc:              esc,
+    escapeRegex:      escapeRegex,
+    parseCreatedAt:   parseCreatedAt,
+    paginationRange:  paginationRange,
+    exportRowsToXlsx: exportRowsToXlsx,
+    showBatchListKpiView: showBatchListKpiView
+};
 
 })();
