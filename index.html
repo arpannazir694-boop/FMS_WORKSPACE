@@ -6,7 +6,7 @@
   <title>FMS Form</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500;1,600&family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
   <!--
     FOR GOOGLE APPS SCRIPT: Replace the line below with <?!= include('style'); ?>
@@ -163,33 +163,66 @@
       <img src="https://res.cloudinary.com/dnrgcigsj/image/upload/v1782800322/ChatGPT_Image_Jun_30_2026_11_46_35_AM_s0aosi.png" alt="FMS FORM Logo" class="sidebar-logo-img" />
     </div>
 
-    <nav class="sidebar-nav">
-      <a class="nav-item" data-page="dashboard" data-title="Dashboard" title="Dashboard">
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <a class="nav-item nav-item-core active" data-page="home" data-title="Home" title="Home">
+        <span class="nav-icon material-icons-round">home</span>
+        <span class="nav-label">Home</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="dashboard" data-title="Dashboard" title="Dashboard" style="display:none;">
         <span class="nav-icon material-icons-round">dashboard</span>
         <span class="nav-label">Dashboard</span>
       </a>
-      <a class="nav-item active" data-page="fms-form" data-title="FMS Form" title="FMS Form">
+      <a class="nav-item nav-item-toggle" data-page="fms-form" data-title="FMS Form" title="FMS Form">
         <span class="nav-icon material-icons-round">assignment</span>
         <span class="nav-label">FMS Form</span>
       </a>
-      <a class="nav-item" data-page="dice-form" data-title="FORMA & DICE FORM" title="FORMA & DICE FORM">
+      <a class="nav-item nav-item-toggle" data-page="dice-form" data-title="FORMA & DICE FORM" title="FORMA & DICE FORM">
         <span class="nav-icon material-icons-round">inventory_2</span>
         <span class="nav-label">FORMA &amp; DICE FORM</span>
       </a>
-      <a class="nav-item" data-page="batch-list" data-title="Production Data" title="Production Data">
+      <a class="nav-item nav-item-toggle" data-page="batch-list" data-title="Production Data" title="Production Data">
         <span class="nav-icon material-icons-round">list_alt</span>
         <span class="nav-label">Production data</span>
       </a>
-      <a class="nav-item" data-page="reports" data-title="Reports" title="Reports">
+      <a class="nav-item nav-item-toggle" data-page="reports" data-title="Reports" title="Reports">
         <span class="nav-icon material-icons-round">bar_chart</span>
         <span class="nav-label">Reports</span>
       </a>
-      <a class="nav-item" data-page="pdf" data-title="PDF" title="PDF">
+      <a class="nav-item nav-item-toggle" data-page="pdf" data-title="PDF" title="PDF">
         <span class="nav-icon material-icons-round">picture_as_pdf</span>
         <span class="nav-label">PDF</span>
       </a>
-      <a class="nav-item" data-page="settings" data-title="Settings" title="Settings">
+      <a class="nav-item nav-item-toggle" data-page="warehouse" data-title="Warehouse" title="Warehouse" style="display:none;">
+        <span class="nav-icon material-icons-round">warehouse</span>
+        <span class="nav-label">Warehouse</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="machine" data-title="Machine" title="Machine" style="display:none;">
+        <span class="nav-icon material-icons-round">precision_manufacturing</span>
+        <span class="nav-label">Machine</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="ot-leave" data-title="OT & Leave" title="OT & Leave" style="display:none;">
+        <span class="nav-icon material-icons-round">event_available</span>
+        <span class="nav-label">OT &amp; Leave</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="purchase" data-title="Purchase" title="Purchase" style="display:none;">
+        <span class="nav-icon material-icons-round">request_quote</span>
+        <span class="nav-label">Purchase</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="maintenance" data-title="Maintenance" title="Maintenance" style="display:none;">
+        <span class="nav-icon material-icons-round">build</span>
+        <span class="nav-label">Maintenance</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="batch-analysis" data-title="Batch Analysis" title="Batch Analysis" style="display:none;">
+        <span class="nav-icon material-icons-round">query_stats</span>
+        <span class="nav-label">Batch Analysis</span>
+      </a>
+      <a class="nav-item nav-item-toggle" data-page="ims" data-title="IMS" title="IMS" style="display:none;">
+        <span class="nav-icon material-icons-round">fact_check</span>
+        <span class="nav-label">IMS</span>
+      </a>
+      <a class="nav-item nav-item-core" data-page="settings" data-title="Settings" title="Settings">
         <span class="nav-icon material-icons-round">settings</span>
+
         <span class="nav-label">Settings</span>
       </a>
     </nav>
@@ -212,9 +245,40 @@
       <button class="topbar-menu-btn" title="Menu" aria-label="Menu">
         <span class="material-icons-round" style="font-size:22px;">menu</span>
       </button>
-      <span class="topbar-title" id="topbar-title">FMS FORM</span>
+      <span class="topbar-title" id="topbar-title">Home</span>
 
       <div class="topbar-actions">
+        <div class="topbar-calendar-wrap" id="topbar-calendar-wrap">
+          <button type="button" class="topbar-calendar-btn" id="topbar-calendar-btn" title="Calendar" aria-label="Calendar" aria-haspopup="true" aria-expanded="false">
+            <span class="material-icons-round" style="font-size:22px;">calendar_today</span>
+          </button>
+          <div class="topbar-calendar" id="topbar-calendar" hidden>
+            <div class="calendar-head">
+              <div class="calendar-selects">
+                <select class="calendar-select" id="calendar-month-select" aria-label="Month"></select>
+                <select class="calendar-select" id="calendar-year-select" aria-label="Year"></select>
+              </div>
+              <div class="calendar-nav">
+                <button type="button" id="calendar-prev-btn" aria-label="Previous month">
+                  <span class="material-icons-round">chevron_left</span>
+                </button>
+                <button type="button" id="calendar-next-btn" aria-label="Next month">
+                  <span class="material-icons-round">chevron_right</span>
+                </button>
+              </div>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+            </div>
+            <div class="calendar-days" id="calendar-days"></div>
+            <div class="calendar-footer">
+              <span class="calendar-selected-label" id="calendar-selected-label">Today</span>
+              <div class="calendar-footer-actions">
+                <button type="button" class="calendar-action" id="calendar-today-btn">Today</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="topbar-bell" title="Notifications">
           <span class="material-icons-round" style="font-size:24px;">notifications</span>
           <span class="badge">3</span>
@@ -249,7 +313,7 @@
       <!-- ============================================================ -->
       <!-- FMS FORM page                                                -->
       <!-- ============================================================ -->
-      <div id="page-fms-form" class="page-view">
+      <div id="page-fms-form" class="page-view" style="display:none;">
         <div class="page-card">
 
           <div class="page-header">
@@ -473,6 +537,44 @@
       </div>
 
       <!-- Placeholder pages -->
+      <div id="page-home" class="page-view">
+        <div class="home-hero" id="home-hero">
+          <span class="home-blob home-blob-1"></span>
+          <span class="home-blob home-blob-2"></span>
+          <span class="home-blob home-blob-3"></span>
+          <span class="home-dotgrid"></span>
+
+          <div class="home-hero-content">
+            <p class="home-anim home-hero-eyebrow" style="animation-delay:.1s">Welcome To</p>
+            <h1 class="home-anim home-hero-title" style="animation-delay:.25s">FMS <span>WORKSPACE</span></h1>
+            <div class="home-anim home-hero-divider" style="animation-delay:.4s">
+              <span class="material-icons-round">diamond</span>
+            </div>
+            <p class="home-anim home-hero-company" style="animation-delay:.5s">Trio Trend Exports Pvt. Ltd.</p>
+
+            <div class="home-anim home-welcome-card" style="animation-delay:.65s">
+              <span class="home-welcome-corner home-welcome-corner-tl"></span>
+              <span class="home-welcome-corner home-welcome-corner-br"></span>
+              <div class="home-welcome-avatar">
+                <span class="home-welcome-avatar-ring"></span>
+                <span class="material-icons-round">handshake</span>
+              </div>
+              <div class="home-welcome-body">
+                <span class="home-welcome-eyebrow">Welcome Back</span>
+                <h3>Hello, <span id="home-greeting-name">there</span>!</h3>
+                <p id="home-welcome-text"><span id="home-welcome-cursor" class="home-typing-cursor"></span></p>
+                <div class="home-quote">
+                  <span class="home-quote-mark">&ldquo;</span>
+                  <span class="home-quote-text">Teamwork makes the dream work.</span>
+                  <span class="home-quote-mark home-quote-mark-end">&rdquo;</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       <div id="page-dashboard" class="page-view" style="display:none;">
         <div class="page-card"><div class="placeholder-page active">
           <span class="ph-icon material-icons-round">dashboard</span>
@@ -563,6 +665,54 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
+            <div class="kpi-card" id="kpi-endline-qc-details" role="button" tabindex="0" title="View End-Line QC Details">
+              <div class="kpi-card-icon kpi-icon-amber">
+                <span class="material-icons-round">task_alt</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">End-Line QC Details</div>
+                <div class="kpi-card-subtitle">View all records from the END-LINE QC sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-post-aql-details" role="button" tabindex="0" title="View POST-AQL Details">
+              <div class="kpi-card-icon kpi-icon-green">
+                <span class="material-icons-round">verified</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">POST-AQL Details</div>
+                <div class="kpi-card-subtitle">View all records from the POST AQL sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-warehouse-fms-details" role="button" tabindex="0" title="View WAREHOUSE-FMS Details">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">warehouse</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">WAREHOUSE-FMS Details</div>
+                <div class="kpi-card-subtitle">View all records from the WAREHOUSE PART sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+            <div class="kpi-card" id="kpi-shipment-details" role="button" tabindex="0" title="View Shipment Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">local_shipping</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Shipment Details</div>
+                <div class="kpi-card-subtitle">View all records from the SHIPMENT sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -581,7 +731,7 @@
               <span class="material-icons-round">content_cut</span>
               Batch Cutting Details
             </div>
-            <button class="btn-excel-icon" id="btn-download-cutting-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-cutting-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -674,7 +824,7 @@
               <span class="material-icons-round">fact_check</span>
               Floor Supervisor & In-Line QC Details
             </div>
-            <button class="btn-excel-icon" id="btn-download-floor-qc-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-floor-qc-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -761,7 +911,7 @@
               <span class="material-icons-round">format_paint</span>
               Edge Paint Details
             </div>
-            <button class="btn-excel-icon" id="btn-download-edge-paint-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-edge-paint-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -848,7 +998,7 @@
               <span class="material-icons-round">assignment_turned_in</span>
               Pre-AQL Details
             </div>
-            <button class="btn-excel-icon" id="btn-download-pre-aql-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-pre-aql-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -922,6 +1072,362 @@
           </div>
         </div>
 
+        <!-- ============================================================ -->
+        <!-- End-Line QC Details — Detail view (added via main.js)        -->
+        <!-- ============================================================ -->
+        <div id="batch-list-endline-qc-view" class="batch-list-extra-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-endline-qc" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">task_alt</span>
+              End-Line QC Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-endline-qc-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-endline-qc-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="endline-qc-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="endline-qc-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="endline-qc-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="endline-qc-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="endline-qc-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="endline-qc-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="endline-qc-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="endline-qc-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="endline-qc-data-table-wrap">
+              <div class="dt-empty-state" id="endline-qc-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="endline-qc-data-table" style="display:none;">
+                <thead id="endline-qc-data-thead"></thead>
+                <tbody id="endline-qc-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="endline-qc-data-footer" style="display:none;">
+              <div class="dt-info" id="endline-qc-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="endline-qc-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- POST-AQL Details — Detail view (added via main.js)           -->
+        <!-- ============================================================ -->
+        <div id="batch-list-post-aql-view" class="batch-list-extra-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-post-aql" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">verified</span>
+              POST-AQL Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-post-aql-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-post-aql-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="post-aql-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="post-aql-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="post-aql-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="post-aql-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="post-aql-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="post-aql-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="post-aql-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="post-aql-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="post-aql-data-table-wrap">
+              <div class="dt-empty-state" id="post-aql-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="post-aql-data-table" style="display:none;">
+                <thead id="post-aql-data-thead"></thead>
+                <tbody id="post-aql-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="post-aql-data-footer" style="display:none;">
+              <div class="dt-info" id="post-aql-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="post-aql-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- WAREHOUSE-FMS Details — Detail view (added via main.js)      -->
+        <!-- ============================================================ -->
+        <div id="batch-list-warehouse-fms-view" class="batch-list-extra-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-warehouse-fms" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">warehouse</span>
+              WAREHOUSE-FMS Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-warehouse-fms-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-warehouse-fms-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="warehouse-fms-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="warehouse-fms-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="warehouse-fms-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="warehouse-fms-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="warehouse-fms-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="warehouse-fms-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="warehouse-fms-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="warehouse-fms-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="warehouse-fms-data-table-wrap">
+              <div class="dt-empty-state" id="warehouse-fms-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="warehouse-fms-data-table" style="display:none;">
+                <thead id="warehouse-fms-data-thead"></thead>
+                <tbody id="warehouse-fms-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="warehouse-fms-data-footer" style="display:none;">
+              <div class="dt-info" id="warehouse-fms-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="warehouse-fms-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Shipment Details — Detail view (added via main.js)           -->
+        <!-- ============================================================ -->
+        <div id="batch-list-shipment-view" class="batch-list-extra-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-shipment" title="Back to Production Data">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Production Data
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">local_shipping</span>
+              Shipment Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-shipment-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-shipment-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="shipment-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="shipment-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="shipment-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="shipment-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="shipment-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="shipment-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="shipment-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="shipment-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="shipment-data-table-wrap">
+              <div class="dt-empty-state" id="shipment-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="shipment-data-table" style="display:none;">
+                <thead id="shipment-data-thead"></thead>
+                <tbody id="shipment-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="shipment-data-footer" style="display:none;">
+              <div class="dt-info" id="shipment-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="shipment-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+
 
         <div id="batch-list-bantala-view" style="display:none;">
 
@@ -935,7 +1441,7 @@
               <span class="material-icons-round">table_chart</span>
               Bantala Details
             </div>
-            <button class="btn-excel-icon" id="btn-download-bantala-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-bantala-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -1077,7 +1583,7 @@
               <span class="material-icons-round">table_chart</span>
               Submitted FMS Data
             </div>
-            <button class="btn-excel-icon" id="btn-download-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <!-- Green Excel-style background -->
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
@@ -1197,7 +1703,7 @@
               <span class="material-icons-round">casino</span>
               Dice Data Summary
             </div>
-            <button class="btn-excel-icon" id="btn-download-dice-summary-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-dice-summary-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -1289,7 +1795,7 @@
               <span class="material-icons-round">category</span>
               Forma Data Summary
             </div>
-            <button class="btn-excel-icon" id="btn-download-forma-summary-excel" title="Download as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-forma-summary-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                 <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -1368,11 +1874,632 @@
       </div>
       <!-- /page-reports -->
 
-      <div id="page-settings" class="page-view" style="display:none;">
+      <div id="page-warehouse" class="page-view" style="display:none;">
+
+        <!-- ============================================================ -->
+        <!-- WAREHOUSE — KPI view (card grid)                             -->
+        <!-- ============================================================ -->
+        <div id="warehouse-section-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">warehouse</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>Warehouse</h1>
+              <p>Warehouse checking and receiving records</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- Checking Details KPI card -->
+            <div class="kpi-card" id="kpi-checking-details" role="button" tabindex="0" title="Checking Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">fact_check</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Checking Details</div>
+                <div class="kpi-card-subtitle">View all records from the CHECKING DETAILS sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- Warehouse Received Details KPI card -->
+            <div class="kpi-card" id="kpi-warehouse-received-details" role="button" tabindex="0" title="Warehouse Received Details">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">inventory</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Warehouse Received Details</div>
+                <div class="kpi-card-subtitle">View all records from the WAREHOUSE RCVD sheet</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- CHECKING DETAILS sub-view                                    -->
+        <!-- ============================================================ -->
+        <div id="checking-details-view" style="display:none;">
+
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-checking-details" title="Back to Warehouse">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Warehouse
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">fact_check</span>
+              Checking Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-checking-details-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-checking-details-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="checking-details-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="checking-details-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="checking-details-date-col-label" for="checking-details-date-from">Date</label>
+                    <input type="date" id="checking-details-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="checking-details-date-to">To</label>
+                    <input type="date" id="checking-details-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="checking-details-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="checking-details-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="checking-details-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="checking-details-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="checking-details-data-table-wrap">
+              <div class="dt-empty-state" id="checking-details-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="checking-details-data-table" style="display:none;">
+                <thead id="checking-details-data-thead"></thead>
+                <tbody id="checking-details-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="checking-details-data-footer" style="display:none;">
+              <div class="dt-info" id="checking-details-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="checking-details-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /checking-details-view -->
+
+        <!-- ============================================================ -->
+        <!-- WAREHOUSE RECEIVED DETAILS sub-view                          -->
+        <!-- ============================================================ -->
+        <div id="warehouse-received-details-view" style="display:none;">
+
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-warehouse-received-details" title="Back to Warehouse">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Warehouse
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">inventory</span>
+              Warehouse Received Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-warehouse-received-details-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-warehouse-received-details-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="warehouse-received-details-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="warehouse-received-details-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="warehouse-received-details-date-col-label" for="warehouse-received-details-date-from">Date</label>
+                    <input type="date" id="warehouse-received-details-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="warehouse-received-details-date-to">To</label>
+                    <input type="date" id="warehouse-received-details-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="warehouse-received-details-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="warehouse-received-details-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="warehouse-received-details-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="warehouse-received-details-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="warehouse-received-details-data-table-wrap">
+              <div class="dt-empty-state" id="warehouse-received-details-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="warehouse-received-details-data-table" style="display:none;">
+                <thead id="warehouse-received-details-data-thead"></thead>
+                <tbody id="warehouse-received-details-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="warehouse-received-details-data-footer" style="display:none;">
+              <div class="dt-info" id="warehouse-received-details-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="warehouse-received-details-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /warehouse-received-details-view -->
+
+      </div>
+      <!-- /page-warehouse -->
+
+      <div id="page-machine" class="page-view" style="display:none;">
         <div class="page-card"><div class="placeholder-page active">
-          <span class="ph-icon material-icons-round">settings</span>
-          <h2>Settings</h2><p>Application settings will appear here.</p>
+          <span class="ph-icon material-icons-round">precision_manufacturing</span>
+          <h2>Machine</h2><p>Machine management tools will appear here.</p>
         </div></div>
+      </div>
+
+      <div id="page-ot-leave" class="page-view" style="display:none;">
+
+        <!-- ============================================================ -->
+        <!-- OT & LEAVE — KPI view (card grid)                            -->
+        <!-- ============================================================ -->
+        <div id="ot-leave-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">event_available</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>OT &amp; Leave</h1>
+              <p>OT and leave attendance records and analysis</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- OT Details KPI card -->
+            <div class="kpi-card" id="kpi-ot-details" role="button" tabindex="0" title="OT Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">more_time</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">OT Details</div>
+                <div class="kpi-card-subtitle">View additional work / overtime records</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- Leave Details KPI card -->
+            <div class="kpi-card" id="kpi-leave-details" role="button" tabindex="0" title="Leave Details">
+              <div class="kpi-card-icon kpi-icon-green">
+                <span class="material-icons-round">event_busy</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Leave Details</div>
+                <div class="kpi-card-subtitle">View leave attendance records</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- OT & Leave Analysis KPI card -->
+            <div class="kpi-card" id="kpi-ot-leave-analysis" role="button" tabindex="0" title="OT & Leave Analysis">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">insights</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">OT &amp; Leave Analysis</div>
+                <div class="kpi-card-subtitle">Full analysis view of additional work details</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- OT DETAILS sub-view                                          -->
+        <!-- ============================================================ -->
+        <div id="ot-details-view" style="display:none;">
+
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-ot-details" title="Back to OT & Leave">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to OT &amp; Leave
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">more_time</span>
+              OT Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-ot-details-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-ot-details-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="ot-details-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="ot-details-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="ot-details-date-col-label" for="ot-details-date-from">Date</label>
+                    <input type="date" id="ot-details-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="ot-details-date-to">To</label>
+                    <input type="date" id="ot-details-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="ot-details-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="ot-details-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="ot-details-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="ot-details-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="ot-details-data-table-wrap">
+              <div class="dt-empty-state" id="ot-details-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="ot-details-data-table" style="display:none;">
+                <thead id="ot-details-data-thead"></thead>
+                <tbody id="ot-details-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="ot-details-data-footer" style="display:none;">
+              <div class="dt-info" id="ot-details-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="ot-details-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /ot-details-view -->
+
+        <!-- ============================================================ -->
+        <!-- LEAVE DETAILS sub-view                                       -->
+        <!-- ============================================================ -->
+        <div id="leave-details-view" style="display:none;">
+
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-leave-details" title="Back to OT & Leave">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to OT &amp; Leave
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">event_busy</span>
+              Leave Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-leave-details-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-leave-details-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="leave-details-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="leave-details-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="leave-details-date-col-label" for="leave-details-date-from">Date</label>
+                    <input type="date" id="leave-details-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="leave-details-date-to">To</label>
+                    <input type="date" id="leave-details-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="leave-details-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="leave-details-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="leave-details-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="leave-details-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="leave-details-data-table-wrap">
+              <div class="dt-empty-state" id="leave-details-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="leave-details-data-table" style="display:none;">
+                <thead id="leave-details-data-thead"></thead>
+                <tbody id="leave-details-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="leave-details-data-footer" style="display:none;">
+              <div class="dt-info" id="leave-details-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="leave-details-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /leave-details-view -->
+
+        <!-- ============================================================ -->
+        <!-- OT & LEAVE ANALYSIS sub-view                                 -->
+        <!-- ============================================================ -->
+        <div id="ot-leave-analysis-view" style="display:none;">
+
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-ot-leave-analysis" title="Back to OT & Leave">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to OT &amp; Leave
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">insights</span>
+              OT &amp; Leave Analysis
+            </div>
+            <button class="btn-excel-icon" id="btn-download-ot-leave-analysis-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-ot-leave-analysis-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="ot-leave-analysis-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="ot-leave-analysis-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="ot-leave-analysis-date-col-label" for="ot-leave-analysis-date-from">Date</label>
+                    <input type="date" id="ot-leave-analysis-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="ot-leave-analysis-date-to">To</label>
+                    <input type="date" id="ot-leave-analysis-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="ot-leave-analysis-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="ot-leave-analysis-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="ot-leave-analysis-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="ot-leave-analysis-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="ot-leave-analysis-data-table-wrap">
+              <div class="dt-empty-state" id="ot-leave-analysis-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="ot-leave-analysis-data-table" style="display:none;">
+                <thead id="ot-leave-analysis-data-thead"></thead>
+                <tbody id="ot-leave-analysis-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="ot-leave-analysis-data-footer" style="display:none;">
+              <div class="dt-info" id="ot-leave-analysis-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="ot-leave-analysis-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /ot-leave-analysis-view -->
+
+      </div>
+      <!-- /page-ot-leave -->
+
+      <div id="page-purchase" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">request_quote</span>
+          <h2>Purchase</h2><p>Purchase management tools will appear here.</p>
+        </div></div>
+      </div>
+
+      <div id="page-maintenance" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">build</span>
+          <h2>Maintenance</h2><p>Maintenance management tools will appear here.</p>
+        </div></div>
+      </div>
+
+      <div id="page-batch-analysis" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">query_stats</span>
+          <h2>Batch Analysis</h2><p>Batch analysis tools will appear here.</p>
+        </div></div>
+      </div>
+
+      <div id="page-ims" class="page-view" style="display:none;">
+        <div class="page-card"><div class="placeholder-page active">
+          <span class="ph-icon material-icons-round">fact_check</span>
+          <h2>IMS</h2><p>IMS tools will appear here.</p>
+        </div></div>
+      </div>
+
+      <div id="page-settings" class="page-view" style="display:none;">
+
+        <div class="reports-header">
+          <div class="reports-header-icon">
+            <span class="material-icons-round">settings</span>
+          </div>
+          <div class="reports-header-text">
+            <h1>Settings</h1>
+            <p>Application settings and preferences</p>
+          </div>
+        </div>
+
+        <div class="page-card settings-section">
+          <div class="settings-section-header">
+            <h3>Customize Sidebar</h3>
+            <p>Choose which menu items appear in your sidebar. The 6 highlighted below are on by default — switch any of them off, or turn on extra modules, to build the sidebar that works for you.</p>
+          </div>
+          <div class="sidebar-toggle-grid" id="sidebar-toggle-grid">
+            <!-- populated dynamically by app.js from ALL_NAV_ITEMS, one .sidebar-toggle-card per item -->
+          </div>
+        </div>
+
       </div>
 
             <div id="page-pdf" class="page-view" style="display:none;">
@@ -1435,7 +2562,7 @@
               <span class="material-icons-round">supervisor_account</span>
               Floor Supervisor
             </div>
-            <button class="btn-excel-icon" id="btn-download-fs-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-fs-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                   <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                   <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -1528,7 +2655,7 @@
               <span class="material-icons-round">fact_check</span>
               In-Line QC
             </div>
-            <button class="btn-excel-icon" id="btn-download-iqc-excel" title="Download filtered data as Excel (.xls)" aria-label="Download Excel">
+            <button class="btn-excel-icon" id="btn-download-iqc-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                   <rect width="32" height="32" rx="6" fill="#1D6F42"/>
                   <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
@@ -1685,6 +2812,7 @@
   FOR STANDALONE USE: keep this tag as-is.
 -->
 <script src="app.js"></script>
+<script src="main.js"></script>
 
 </body>
 </html>
