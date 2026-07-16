@@ -208,6 +208,10 @@
         <span class="nav-icon material-icons-round">request_quote</span>
         <span class="nav-label">Purchase</span>
       </a>
+      <a class="nav-item nav-item-toggle" data-page="store" data-title="Store" title="Store" style="display:none;">
+        <span class="nav-icon material-icons-round">storefront</span>
+        <span class="nav-label">Store</span>
+      </a>
       <a class="nav-item nav-item-toggle" data-page="maintenance" data-title="Maintenance" title="Maintenance" style="display:none;">
         <span class="nav-icon material-icons-round">build</span>
         <span class="nav-label">Maintenance</span>
@@ -220,17 +224,12 @@
         <span class="nav-icon material-icons-round">fact_check</span>
         <span class="nav-label">IMS</span>
       </a>
-      <a class="nav-item nav-item-core" data-page="settings" data-title="Settings" title="Settings">
-        <span class="nav-icon material-icons-round">settings</span>
-
-        <span class="nav-label">Settings</span>
-      </a>
     </nav>
 
     <div class="sidebar-bottom">
-      <a class="nav-item" id="logout-btn" title="Logout">
-        <span class="nav-icon material-icons-round">logout</span>
-        <span class="nav-label">Logout</span>
+      <a class="nav-item nav-item-core" data-page="settings" data-title="Settings" title="Settings">
+        <span class="nav-icon material-icons-round">settings</span>
+        <span class="nav-label">Settings</span>
       </a>
       <div class="sidebar-footer-label">© 2026 FMS<br>All rights reserved</div>
     </div>
@@ -1564,6 +1563,16 @@
               <div class="kpi-card-body"><div class="kpi-card-title">Forma Data Summary</div><div class="kpi-card-subtitle">View all submitted Forma tracker records</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
+            <div class="kpi-card" id="kpi-submitted-domestic" role="button" tabindex="0" title="View submitted domestic purchase orders">
+              <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">store</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Submitted Domestic Data</div><div class="kpi-card-subtitle">View domestic form entries from Google Sheet</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+            <div class="kpi-card" id="kpi-submitted-import" role="button" tabindex="0" title="View submitted import purchase orders">
+              <div class="kpi-card-icon kpi-icon-amber"><span class="material-icons-round">flight_takeoff</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Submitted Import Data</div><div class="kpi-card-subtitle">View import form entries from Google Sheet</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
 
           </div>
         </div>
@@ -1871,6 +1880,190 @@
             </div>
           </div>
         </div>
+
+        <!-- ============================================================ -->
+        <!-- Submitted Domestic Data — Detail view                        -->
+        <!-- ============================================================ -->
+        <div id="reports-domestic-purchase-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back tracker-summary-back" type="button" title="Back to Reports">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Reports
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">store</span>
+              Submitted Domestic Data
+            </div>
+            <button class="btn-excel-icon" id="btn-download-domestic-purchase-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-domestic-purchase" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="domestic-purchase-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="domestic-purchase-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label">Timestamp</label>
+                  <input type="date" id="domestic-purchase-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="domestic-purchase-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="domestic-purchase-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="domestic-purchase-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="domestic-purchase-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="domestic-purchase-table-wrap">
+              <div class="dt-empty-state" id="domestic-purchase-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="domestic-purchase-table" style="display:none;">
+                <thead id="domestic-purchase-thead"></thead>
+                <tbody id="domestic-purchase-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="domestic-purchase-footer" style="display:none;">
+              <div class="dt-info" id="domestic-purchase-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="domestic-purchase-pagination"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Submitted Import Data — Detail view                          -->
+        <!-- ============================================================ -->
+        <div id="reports-import-purchase-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back tracker-summary-back" type="button" title="Back to Reports">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Reports
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">flight_takeoff</span>
+              Submitted Import Data
+            </div>
+            <button class="btn-excel-icon" id="btn-download-import-purchase-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-import-purchase" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+
+            <!-- Toolbar -->
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="import-purchase-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="import-purchase-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label">Timestamp</label>
+                  <input type="date" id="import-purchase-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">→</span>
+                  <input type="date" id="import-purchase-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="import-purchase-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="import-purchase-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="import-purchase-count-badge">— records</div>
+              </div>
+            </div>
+
+            <!-- Table wrapper -->
+            <div class="dt-table-wrap" id="import-purchase-table-wrap">
+              <div class="dt-empty-state" id="import-purchase-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="import-purchase-table" style="display:none;">
+                <thead id="import-purchase-thead"></thead>
+                <tbody id="import-purchase-tbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="dt-footer" id="import-purchase-footer" style="display:none;">
+              <div class="dt-info" id="import-purchase-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="import-purchase-pagination"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- /page-reports -->
 
@@ -2107,10 +2300,231 @@
       <!-- /page-warehouse -->
 
       <div id="page-machine" class="page-view" style="display:none;">
-        <div class="page-card"><div class="placeholder-page active">
-          <span class="ph-icon material-icons-round">precision_manufacturing</span>
-          <h2>Machine</h2><p>Machine management tools will appear here.</p>
-        </div></div>
+        <div id="machine-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">precision_manufacturing</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>Machine</h1>
+              <p>Machine-related details and records</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card" id="kpi-die-less-knife-cutting-machine-details" role="button" tabindex="0" title="Die-Less Knife Cutting Machine Details">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">content_cut</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Die-Less Knife Cutting Machine Details</div>
+                <div class="kpi-card-subtitle">View machine data and monthly inactivity details</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="die-less-knife-cutting-machine-details-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-die-less-knife-cutting-machine-details" title="Back to Machine">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Machine
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">content_cut</span>
+              Die-Less Knife Cutting Machine Details
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-card" id="kpi-machine-data" role="button" tabindex="0" title="Machine Data">
+              <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">storage</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Machine Data</div><div class="kpi-card-subtitle">View machine data and records</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+            <div class="kpi-card" id="kpi-monthly-machine-inactivity-data" role="button" tabindex="0" title="Monthly Machine Inactivity (Data)">
+              <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">event_busy</span></div>
+              <div class="kpi-card-body"><div class="kpi-card-title">Monthly Machine Inactivity (Data)</div><div class="kpi-card-subtitle">View monthly machine inactivity data</div></div>
+              <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="machine-data-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-machine-data" title="Back to Die-Less Knife Cutting Machine Details">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Details
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">content_cut</span>
+              Machine Data
+            </div>
+            <button class="btn-excel-icon" id="btn-download-machine-data-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-machine-data-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="machine-data-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="machine-data-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="machine-data-date-col-label" for="machine-data-date-from">Date</label>
+                    <input type="date" id="machine-data-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="machine-data-date-to">To</label>
+                    <input type="date" id="machine-data-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="machine-data-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="machine-data-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="machine-data-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="machine-data-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="machine-data-data-table-wrap">
+              <div class="dt-empty-state" id="machine-data-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="machine-data-data-table" style="display:none;">
+                <thead id="machine-data-data-thead"></thead>
+                <tbody id="machine-data-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="machine-data-data-footer" style="display:none;">
+              <div class="dt-info" id="machine-data-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="machine-data-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /machine-data-view -->
+
+        <div id="monthly-machine-inactivity-data-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-monthly-machine-inactivity-data" title="Back to Die-Less Knife Cutting Machine Details">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Details
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">event_busy</span>
+              Monthly Machine Inactivity (Data)
+            </div>
+            <button class="btn-excel-icon" id="btn-download-monthly-machine-inactivity-data-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-monthly-machine-inactivity-data-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="monthly-machine-inactivity-data-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="monthly-machine-inactivity-data-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="monthly-machine-inactivity-data-date-col-label" for="monthly-machine-inactivity-data-date-from">Date</label>
+                    <input type="date" id="monthly-machine-inactivity-data-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="monthly-machine-inactivity-data-date-to">To</label>
+                    <input type="date" id="monthly-machine-inactivity-data-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="monthly-machine-inactivity-data-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="monthly-machine-inactivity-data-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="monthly-machine-inactivity-data-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="monthly-machine-inactivity-data-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="monthly-machine-inactivity-data-data-table-wrap">
+              <div class="dt-empty-state" id="monthly-machine-inactivity-data-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="monthly-machine-inactivity-data-data-table" style="display:none;">
+                <thead id="monthly-machine-inactivity-data-data-thead"></thead>
+                <tbody id="monthly-machine-inactivity-data-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="monthly-machine-inactivity-data-data-footer" style="display:none;">
+              <div class="dt-info" id="monthly-machine-inactivity-data-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="monthly-machine-inactivity-data-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /monthly-machine-inactivity-data-view -->
       </div>
 
       <div id="page-ot-leave" class="page-view" style="display:none;">
@@ -2451,11 +2865,250 @@
       <!-- /page-ot-leave -->
 
       <div id="page-purchase" class="page-view" style="display:none;">
-        <div class="page-card"><div class="placeholder-page active">
-          <span class="ph-icon material-icons-round">request_quote</span>
-          <h2>Purchase</h2><p>Purchase management tools will appear here.</p>
-        </div></div>
+
+        <!-- ============================================================ -->
+        <!-- PURCHASE — KPI view (card grid)                              -->
+        <!-- ============================================================ -->
+        <div id="purchase-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">request_quote</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>Purchase</h1>
+              <p>Purchase order tools and records</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- Domestic Purchase Order Form KPI card -->
+            <div class="kpi-card kpi-card-accent-blue" id="kpi-domestic-po" role="button" tabindex="0" title="Domestic Purchase Order Form">
+              <div class="kpi-card-icon kpi-icon-blue">
+                <span class="material-icons-round">store</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Domestic Purchase Order Form</div>
+                <div class="kpi-card-subtitle">Create and manage domestic purchase orders</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- Import Purchase Order Form KPI card -->
+            <div class="kpi-card kpi-card-accent-amber" id="kpi-import-po" role="button" tabindex="0" title="Import Purchase Order Form">
+              <div class="kpi-card-icon kpi-icon-amber">
+                <span class="material-icons-round">flight_takeoff</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Import Purchase Order Form</div>
+                <div class="kpi-card-subtitle">Create and manage import purchase orders</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- DOMESTIC PURCHASE ORDER FORM sub-view                        -->
+        <!-- ============================================================ -->
+        <div id="domestic-po-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-domestic-po" title="Back to Purchase">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Purchase
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">store</span>
+              Domestic Purchase Order Form
+            </div>
+          </div>
+
+          <div class="page-card page-card--domestic po-card">
+            <div class="po-card-glow" aria-hidden="true"></div>
+            <div class="page-header po-header">
+              <div class="page-header-icon"><span class="material-icons-round">store</span></div>
+              <div class="page-header-text">
+                <span class="po-badge po-badge--domestic"><span class="material-icons-round">verified</span>Domestic Sourcing</span>
+                <h1>Domestic Purchase Order Form</h1>
+                <p>Enter domestic purchase order details</p>
+              </div>
+            </div>
+            <form id="domestic-po-form" class="tracker-form" novalidate>
+              <div class="form-body">
+                <div class="po-section-title"><span class="material-icons-round">receipt_long</span>Order &amp; Reference Details</div>
+                <div class="form-grid">
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-po-order-date">PO Order Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">event</span><input class="field-input po-input" id="domestic-po-order-date" name="poOrderDate" type="date" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-po-number">PO Number <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">tag</span><input class="field-input po-input" id="domestic-po-number" name="poNumber" type="text" autocomplete="off" required></div><div id="domestic-po-number-msg" class="batch-auto-msg"></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-itb">ITB <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">description</span><input class="field-input po-input" id="domestic-itb" name="itb" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-indent-date">Indent Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">event_note</span><input class="field-input po-input" id="domestic-indent-date" name="indentDate" type="date" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-indent-number">Indent Number <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">numbers</span><input class="field-input po-input" id="domestic-indent-number" name="indentNumber" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-season">Season <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">calendar_month</span><select class="field-input po-input" id="domestic-season" name="season" required><option value="" disabled selected>Select Season</option></select></div></div>
+                </div>
+                <div class="po-section-title"><span class="material-icons-round">local_shipping</span>Supplier &amp; Product Details</div>
+                <div class="form-grid">
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-supplier-name">Supplier Name <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">storefront</span><input class="field-input po-input" id="domestic-supplier-name" name="supplierName" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-category">Category <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">category</span><select class="field-input po-input" id="domestic-category" name="category" required><option value="" disabled selected>Select Category</option></select></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-quantity">Quantity <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">inventory_2</span><input class="field-input po-input" id="domestic-quantity" name="quantity" type="number" min="0" step="0.01" inputmode="decimal" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="domestic-eta-date">ETA Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">local_shipping</span><input class="field-input po-input" id="domestic-eta-date" name="etaDate" type="date" required></div></div>
+                </div>
+              </div>
+              <div class="form-actions"><button class="btn-reset" type="reset"><span class="material-icons-round">restart_alt</span>Reset</button><button class="btn-submit btn-submit--domestic" type="submit"><span class="material-icons-round">send</span>Submit Purchase Order</button></div>
+            </form>
+          </div>
+        </div>
+        <!-- /domestic-po-view -->
+
+        <!-- ============================================================ -->
+        <!-- IMPORT PURCHASE ORDER FORM sub-view                          -->
+        <!-- ============================================================ -->
+        <div id="import-po-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-import-po" title="Back to Purchase">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Purchase
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">flight_takeoff</span>
+              Import Purchase Order Form
+            </div>
+          </div>
+
+          <div class="page-card page-card--import po-card">
+            <div class="po-card-glow" aria-hidden="true"></div>
+            <div class="page-header po-header">
+              <div class="page-header-icon"><span class="material-icons-round">flight_takeoff</span></div>
+              <div class="page-header-text">
+                <span class="po-badge po-badge--import"><span class="material-icons-round">public</span>International Sourcing</span>
+                <h1>Import Purchase Order Form</h1>
+                <p>Enter import purchase order details</p>
+              </div>
+            </div>
+            <form id="import-po-form" class="tracker-form" novalidate>
+              <div class="form-body">
+                <div class="po-section-title"><span class="material-icons-round">receipt_long</span>Order &amp; Reference Details</div>
+                <div class="form-grid">
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-po-order-date">PO Order Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">event</span><input class="field-input po-input" id="import-po-order-date" name="poOrderDate" type="date" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-po-number">PO Number <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">tag</span><input class="field-input po-input" id="import-po-number" name="poNumber" type="text" autocomplete="off" required></div><div id="import-po-number-msg" class="batch-auto-msg"></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-itb">ITB <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">description</span><input class="field-input po-input" id="import-itb" name="itb" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-indent-date">Indent Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">event_note</span><input class="field-input po-input" id="import-indent-date" name="indentDate" type="date" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-indent-number">Indent Number <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">numbers</span><input class="field-input po-input" id="import-indent-number" name="indentNumber" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-season">Season <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">calendar_month</span><select class="field-input po-input" id="import-season" name="season" required><option value="" disabled selected>Select Season</option></select></div></div>
+                </div>
+                <div class="po-section-title"><span class="material-icons-round">local_shipping</span>Supplier &amp; Product Details</div>
+                <div class="form-grid">
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-supplier-name">Supplier Name <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">storefront</span><input class="field-input po-input" id="import-supplier-name" name="supplierName" type="text" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-category">Category <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">category</span><select class="field-input po-input" id="import-category" name="category" required><option value="" disabled selected>Select Category</option></select></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-quantity">Quantity <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">inventory_2</span><input class="field-input po-input" id="import-quantity" name="quantity" type="number" min="0" step="0.01" inputmode="decimal" required></div></div>
+                <div class="form-field col-span-2 po-field"><label class="field-label" for="import-eta-date">ETA Date <span class="required">*</span></label><div class="po-input-wrap"><span class="material-icons-round po-field-icon">flight_land</span><input class="field-input po-input" id="import-eta-date" name="etaDate" type="date" required></div></div>
+                </div>
+              </div>
+              <div class="form-actions"><button class="btn-reset" type="reset"><span class="material-icons-round">restart_alt</span>Reset</button><button class="btn-submit btn-submit--import" type="submit"><span class="material-icons-round">send</span>Submit Purchase Order</button></div>
+            </form>
+          </div>
+        </div>
+        <!-- /import-po-view -->
+
       </div>
+      <!-- /page-purchase -->
+
+      <div id="page-store" class="page-view" style="display:none;">
+
+        <!-- Store KPI view -->
+        <div id="store-kpi-view">
+          <div class="reports-header">
+            <div class="reports-header-icon">
+              <span class="material-icons-round">storefront</span>
+            </div>
+            <div class="reports-header-text">
+              <h1>Store</h1>
+              <p>Store management tools and records</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- Pre-Production for Store KPI card -->
+            <div class="kpi-card" id="kpi-store-ai-data" role="button" tabindex="0" title="View Pre-Production for Store">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">redeem</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Pre-Production for Store</div>
+                <div class="kpi-card-subtitle">View Pre-Production for Store records</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- PRE-PRODUCTION FOR STORE sub-view (inside Store)              -->
+        <!-- ============================================================ -->
+        <div id="store-ai-data-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-store-ai-data" title="Back to Store">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Store
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">redeem</span>
+              Pre-Production for Store Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-store-preproduction-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-store-preproduction-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="store-preproduction-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="store-preproduction-data-search-clear" title="Clear search" style="display:none;"><span class="material-icons-round">close</span></button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="store-preproduction-data-page-size" class="dt-page-size-select"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="store-preproduction-data-count-badge">- records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="store-preproduction-data-table-wrap">
+              <div class="dt-empty-state" id="store-preproduction-data-empty"><span class="material-icons-round">hourglass_empty</span><p>Loading data...</p></div>
+              <table class="dt-table" id="store-preproduction-data-table" style="display:none;"><thead id="store-preproduction-data-thead"></thead><tbody id="store-preproduction-data-tbody"></tbody></table>
+            </div>
+            <div class="dt-footer" id="store-preproduction-data-footer" style="display:none;"><div class="dt-info" id="store-preproduction-data-info">Showing 0 of 0 entries</div><div class="dt-pagination" id="store-preproduction-data-pagination"></div></div>
+          </div>
+
+        </div>
+        <!-- /store-ai-data-view -->
+
+      </div>
+      <!-- /page-store -->
 
       <div id="page-maintenance" class="page-view" style="display:none;">
         <div class="page-card"><div class="placeholder-page active">
@@ -2539,6 +3192,34 @@
               <div class="kpi-card-body">
                 <div class="kpi-card-title">In-Line QC</div>
                 <div class="kpi-card-subtitle">View In-Line QC records and data</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- End-Line QC KPI card -->
+            <div class="kpi-card" id="kpi-pdf-endline-qc" role="button" tabindex="0" title="End-Line QC">
+              <div class="kpi-card-icon kpi-icon-amber">
+                <span class="material-icons-round">checklist</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">End-Line QC</div>
+                <div class="kpi-card-subtitle">View End-Line QC records and data</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
+
+            <!-- Edge-Paint KPI card -->
+            <div class="kpi-card" id="kpi-pdf-edge-paint" role="button" tabindex="0" title="Edge-Paint">
+              <div class="kpi-card-icon kpi-icon-purple">
+                <span class="material-icons-round">format_paint</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Edge-Paint</div>
+                <div class="kpi-card-subtitle">View Edge-Paint records and data</div>
               </div>
               <div class="kpi-card-arrow">
                 <span class="material-icons-round">arrow_forward_ios</span>
@@ -2733,6 +3414,186 @@
         </div>
         <!-- /pdf-inline-qc-view -->
 
+        <!-- ============================================================ -->
+        <!-- END-LINE QC sub-view (inside PDF)                            -->
+        <!-- ============================================================ -->
+        <div id="pdf-endline-qc-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-pdf-endline-qc" title="Back to PDF">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to PDF
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">checklist</span>
+              End-Line QC Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-pdf-endline-qc-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-pdf-endline-qc-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="pdf-endline-qc-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="pdf-endline-qc-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="pdf-endline-qc-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="pdf-endline-qc-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="pdf-endline-qc-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="pdf-endline-qc-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="pdf-endline-qc-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="pdf-endline-qc-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="pdf-endline-qc-data-table-wrap">
+              <div class="dt-empty-state" id="pdf-endline-qc-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="pdf-endline-qc-data-table" style="display:none;">
+                <thead id="pdf-endline-qc-data-thead"></thead>
+                <tbody id="pdf-endline-qc-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="pdf-endline-qc-data-footer" style="display:none;">
+              <div class="dt-info" id="pdf-endline-qc-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="pdf-endline-qc-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+        <!-- /pdf-endline-qc-view -->
+
+        <!-- ============================================================ -->
+        <!-- EDGE-PAINT sub-view (inside PDF)                             -->
+        <!-- ============================================================ -->
+        <div id="pdf-edge-paint-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-pdf-edge-paint" title="Back to PDF">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to PDF
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">format_paint</span>
+              Edge Paint Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-pdf-edge-paint-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-pdf-edge-paint-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="pdf-edge-paint-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="pdf-edge-paint-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-filter-wrap">
+                  <span class="material-icons-round dt-date-icon">event</span>
+                  <label class="dt-date-label" id="pdf-edge-paint-date-col-label">FMS Upload Timestamp</label>
+                  <input type="date" id="pdf-edge-paint-date-from" class="dt-date-input" title="From date" />
+                  <span class="dt-date-sep">&rarr;</span>
+                  <input type="date" id="pdf-edge-paint-date-to" class="dt-date-input" title="To date" />
+                  <button class="dt-date-clear-btn" id="pdf-edge-paint-date-clear" title="Clear date filter" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="pdf-edge-paint-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="pdf-edge-paint-data-count-badge">- records</div>
+              </div>
+            </div>
+
+            <div class="dt-table-wrap" id="pdf-edge-paint-data-table-wrap">
+              <div class="dt-empty-state" id="pdf-edge-paint-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data...</p>
+              </div>
+              <table class="dt-table" id="pdf-edge-paint-data-table" style="display:none;">
+                <thead id="pdf-edge-paint-data-thead"></thead>
+                <tbody id="pdf-edge-paint-data-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="dt-footer" id="pdf-edge-paint-data-footer" style="display:none;">
+              <div class="dt-info" id="pdf-edge-paint-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="pdf-edge-paint-data-pagination"></div>
+            </div>
+
+          </div>
+        </div>
+        <!-- /pdf-edge-paint-view -->
+
       </div>
       <!-- ============================================================ -->
       <!-- FORMA & DICE FORM PAGE                                      -->
@@ -2813,6 +3674,7 @@
 -->
 <script src="app.js"></script>
 <script src="main.js"></script>
+<script src="web.js"></script>
 
 </body>
 </html>
