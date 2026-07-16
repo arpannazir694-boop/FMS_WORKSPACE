@@ -10,6 +10,11 @@
 // ---------------------------------------------------------------------------
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbx99oNMmHYn-jum8NEtkUFqYmR3nV0reWfL1MYC7GDeRxQJu-BbKJq56KW1KcmUoCjRNA/exec';
 var DICE_FORMA_URL = 'https://script.google.com/macros/s/AKfycbxiKzPvhMr1BG22J7q2VvCMunHlav1s3lOgfizUUKbD10q49gZSotRyF2Wd_kvwSzcT/exec';
+// Used by fetchTrackerSummary() below for the Domestic/Import purchase report
+// (Reports > Submitted Domestic/Import Data — same template as Dice/Forma).
+// Kept in sync with the PURCHASE_URL declared in main.js — that copy lives in a
+// separate closure (main.js has its own IIFE) so it isn't visible in here.
+var PURCHASE_URL = 'https://script.google.com/macros/s/AKfycbwjHUTJKOh3_P0mXD1Kk1dyeBJ_KuSRMjCjcm-YtJBDH9RMGUnkC_F4ELONFhkGefkI/exec';
 
 // ---------------------------------------------------------------------------
 // Session — read logged-in user from sessionStorage (set by login.html)
@@ -929,15 +934,12 @@ function initNav() {
         if (page === 'pdf') {
         showPdfKpiView();
         }
+        // Reset store to KPI view when navigating to Store
+        if (page === 'store') {
+        showStoreKpiView();
+        }
     });
     });
-
-    var logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-    logoutBtn.addEventListener('click', function () {
-        logoutUser();
-    });
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1000,6 +1002,7 @@ var ALL_NAV_ITEMS = [
     { page: 'machine',        label: 'Machine',             icon: 'precision_manufacturing',  defaultOn: false },
     { page: 'ot-leave',       label: 'OT & Leave',          icon: 'event_available',          defaultOn: false },
     { page: 'purchase',       label: 'Purchase',            icon: 'request_quote',            defaultOn: false },
+    { page: 'store',          label: 'Store',               icon: 'storefront',               defaultOn: false },
     { page: 'maintenance',    label: 'Maintenance',         icon: 'build',                    defaultOn: false },
     { page: 'batch-analysis', label: 'Batch Analysis',      icon: 'query_stats',              defaultOn: false },
     { page: 'ims',            label: 'IMS',                 icon: 'fact_check',               defaultOn: false }
@@ -1421,21 +1424,17 @@ function getBoundsForPeriod(periodVal) {
 // Show / hide reports sub-views
 // ---------------------------------------------------------------------------
 function showReportsKpiView() {
-    var kpiView  = document.getElementById('reports-kpi-view');
-    var dataView = document.getElementById('reports-fms-data-view');
-    var diceView = document.getElementById('reports-dice-summary-view');
-    var formaView = document.getElementById('reports-forma-summary-view');
-    if (kpiView)  kpiView.style.display  = '';
-    if (dataView) dataView.style.display = 'none';
-    if (diceView) diceView.style.display = 'none';
-    if (formaView) formaView.style.display = 'none';
+    REPORTS_ALL_VIEW_IDS.forEach(function (id) {
+        var view = document.getElementById(id);
+        if (view) view.style.display = id === 'reports-kpi-view' ? '' : 'none';
+    });
 }
 
 function showReportsFmsDataView() {
-    var kpiView  = document.getElementById('reports-kpi-view');
-    var dataView = document.getElementById('reports-fms-data-view');
-    if (kpiView)  kpiView.style.display  = 'none';
-    if (dataView) dataView.style.display = '';
+    REPORTS_ALL_VIEW_IDS.forEach(function (id) {
+        var view = document.getElementById(id);
+        if (view) view.style.display = id === 'reports-fms-data-view' ? '' : 'none';
+    });
 
     // If we have no data yet (or a refresh was requested), fetch
     if (fmsTableData.allRows.length === 0) {
@@ -1482,28 +1481,68 @@ var formaSummaryTableData = {
     dateTo:        ''    // YYYY-MM-DD — filters on Timestamp column
 };
 
+var domesticPurchaseSummaryTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',   // YYYY-MM-DD — filters on Timestamp column
+    dateTo:        ''    // YYYY-MM-DD — filters on Timestamp column
+};
+
+var importPurchaseSummaryTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',   // YYYY-MM-DD — filters on Timestamp column
+    dateTo:        ''    // YYYY-MM-DD — filters on Timestamp column
+};
+
 function getTrackerSummaryConfig(type) {
-    return type === 'dice'
-        ? { prefix: 'dice-summary', viewId: 'reports-dice-summary-view', action: 'getDiceSummary', label: 'Dice', emptyLabel: 'Dice Data Summary', excelSheetName: 'Dice Data Summary', excelFilePrefix: 'Dice_Data_Summary' }
-        : { prefix: 'forma-summary', viewId: 'reports-forma-summary-view', action: 'getFormaSummary', label: 'Forma', emptyLabel: 'Forma Data Summary', excelSheetName: 'Forma Data Summary', excelFilePrefix: 'Forma_Data_Summary' };
+    if (type === 'dice')     return { prefix: 'dice-summary',   viewId: 'reports-dice-summary-view',   action: 'getDiceSummary',   label: 'Dice',     emptyLabel: 'Dice Data Summary',     excelSheetName: 'Dice Data Summary',     excelFilePrefix: 'Dice_Data_Summary',     baseUrl: DICE_FORMA_URL };
+    if (type === 'forma')    return { prefix: 'forma-summary',  viewId: 'reports-forma-summary-view',  action: 'getFormaSummary',  label: 'Forma',    emptyLabel: 'Forma Data Summary',    excelSheetName: 'Forma Data Summary',    excelFilePrefix: 'Forma_Data_Summary',    baseUrl: DICE_FORMA_URL };
+    if (type === 'domestic') return { prefix: 'domestic-purchase', viewId: 'reports-domestic-purchase-view', action: 'getDomesticPurchaseSummary', label: 'Domestic', emptyLabel: 'Submitted Domestic Data', excelSheetName: 'Domestic Purchase Data', excelFilePrefix: 'Domestic_Purchase_Data', baseUrl: PURCHASE_URL };
+    if (type === 'import')   return { prefix: 'import-purchase',   viewId: 'reports-import-purchase-view',   action: 'getImportPurchaseSummary',   label: 'Import',   emptyLabel: 'Submitted Import Data',   excelSheetName: 'Import Purchase Data',   excelFilePrefix: 'Import_Purchase_Data',   baseUrl: PURCHASE_URL };
+    return { prefix: 'forma-summary', viewId: 'reports-forma-summary-view', action: 'getFormaSummary', label: 'Forma', emptyLabel: 'Forma Data Summary', excelSheetName: 'Forma Data Summary', excelFilePrefix: 'Forma_Data_Summary', baseUrl: DICE_FORMA_URL };
 }
 
 function getTrackerSummaryState(type) {
-    return type === 'dice' ? diceSummaryTableData : formaSummaryTableData;
+    if (type === 'dice')     return diceSummaryTableData;
+    if (type === 'forma')    return formaSummaryTableData;
+    if (type === 'domestic') return domesticPurchaseSummaryTableData;
+    if (type === 'import')   return importPurchaseSummaryTableData;
+    return formaSummaryTableData;
 }
+
+// All report sub-view container ids that live inside the Reports page. Used
+// by showReportsKpiView / showReportsFmsDataView / showTrackerSummary to
+// keep exactly one sub-view visible at a time.
+var REPORTS_ALL_VIEW_IDS = [
+    'reports-kpi-view', 'reports-fms-data-view',
+    'reports-dice-summary-view', 'reports-forma-summary-view',
+    'reports-domestic-purchase-view', 'reports-import-purchase-view'
+];
 
 // Column index 0 ("Timestamp") is the date-filter column for both sheets.
 function getTrackerSummaryDateColIndex() { return 0; }
 
 function showTrackerSummary(type) {
-    var kpiView = document.getElementById('reports-kpi-view');
-    var fmsView = document.getElementById('reports-fms-data-view');
-    var diceView = document.getElementById('reports-dice-summary-view');
-    var formaView = document.getElementById('reports-forma-summary-view');
-    if (kpiView) kpiView.style.display = 'none';
-    if (fmsView) fmsView.style.display = 'none';
-    if (diceView) diceView.style.display = type === 'dice' ? '' : 'none';
-    if (formaView) formaView.style.display = type === 'forma' ? '' : 'none';
+    var config = getTrackerSummaryConfig(type);
+    REPORTS_ALL_VIEW_IDS.forEach(function (id) {
+        var view = document.getElementById(id);
+        if (view) view.style.display = id === config.viewId ? '' : 'none';
+    });
 
     var state = getTrackerSummaryState(type);
     if (state.allRows.length === 0) {
@@ -1524,7 +1563,7 @@ function fetchTrackerSummary(type) {
     if (footerEl) footerEl.style.display = 'none';
     showSpinner('Fetching ' + config.label + ' data…');
 
-    fetch(DICE_FORMA_URL + '?action=' + encodeURIComponent(config.action) + '&_=' + Date.now())
+    fetch((config.baseUrl || DICE_FORMA_URL) + '?action=' + encodeURIComponent(config.action) + '&_=' + Date.now())
         .then(function (response) {
             if (!response.ok) throw new Error('The form server returned HTTP ' + response.status + '.');
             return response.json();
@@ -1533,7 +1572,7 @@ function fetchTrackerSummary(type) {
             hideSpinner();
             if (!result || !result.success) throw new Error((result && result.error) || 'Could not load data.');
             if (!Array.isArray(result.headers) || !Array.isArray(result.rows)) {
-                throw new Error('The DICE_FORMA web app needs to be redeployed with the latest summary code.');
+                throw new Error('The web app needs to be redeployed with the latest summary code.');
             }
             onTrackerSummaryLoaded(type, result);
         })
@@ -2676,6 +2715,17 @@ function findFieldValue(headers, row, patterns) {
     return '';
 }
 
+// findHeaderIndex — like findFieldValue, but returns the column index
+// instead of the value. Returns -1 if no header matches any pattern.
+function findHeaderIndex(headers, patterns) {
+    for (var p = 0; p < patterns.length; p++) {
+        for (var i = 0; i < headers.length; i++) {
+            if (patterns[p].test(String(headers[i] || '').trim())) return i;
+        }
+    }
+    return -1;
+}
+
 function extractChecklistFields(headers, row, batchIdOverride) {
     // Follow-up dates are read by fixed position rather than header text,
     // since the sheet doesn't reliably label these columns:
@@ -2874,6 +2924,229 @@ function buildIqcPdfHtml(headers, row, batchIdOverride) {
     );
 }
 
+// ---------------------------------------------------------------------------
+// EDGE-PAINT INSPECTION REPORT — reconstructed to match the approved printed
+// form exactly: FORM ID / Generated-at header, batch info grid, remarks box,
+// checker name, a fixed 29-row bilingual (Bengali/English) parts checklist
+// with Checked Qty / Repair Qty / Overlapping (Yes/No) columns, and the two
+// signature lines. The batch info comes from the sheet row; the parts
+// checklist itself is fixed (printed blank for manual completion), same
+// approach as the FS/IQC follow-up checklists above.
+// ---------------------------------------------------------------------------
+
+var EDGE_PAINT_PARTS_CHECKLIST = [
+    { bn: 'লেবেল',                                        en: 'LEBEL' },
+    { bn: 'ইনসাইড জিপ লুপ',                                en: 'INSIDE ZIP LOOP' },
+    { bn: '৩ নং টাই',                                      en: '3 NO. TIE' },
+    { bn: '৫ নং টাই',                                      en: '5 NO. TIE' },
+    { bn: 'গ্র্যাসেট লুপ',                                  en: 'GRASSET LOOP' },
+    { bn: 'গ্র্যাসেট',                                      en: 'GRASSET' },
+    { bn: 'হ্যান্ডেল লুপ',                                  en: 'HANDLE LOOP' },
+    { bn: 'আপার লুপ',                                      en: 'UPPER LOOP' },
+    { bn: 'বাদি',                                          en: 'WADI' },
+    { bn: 'জিপ গার্ড',                                      en: 'ZIP GUARD' },
+    { bn: 'আপার টপ',                                       en: 'UPPER TOP' },
+    { bn: 'আপার',                                          en: 'UPPER' },
+    { bn: 'বোলা',                                          en: 'BOLA' },
+    { bn: 'ডি-লুপ',                                        en: 'D-LOOP' },
+    { bn: 'ম্যাগনেট লুপ',                                    en: 'MAGNET LOOP' },
+    { bn: 'তলা',                                          en: 'TOLA' },
+    { bn: 'ফাইনাল ব্যাগ',                                   en: 'FINAL BAG' },
+    { bn: 'গ্র্যাব হ্যান্ডেল লুপ',                            en: 'GRAB HANDLE LOOP' },
+    { bn: 'গ্র্যাব হ্যান্ডেল ফাইনাল',                          en: 'GRAB HANDLE FINAL' },
+    { bn: 'স্মল শোল্ডার হ্যান্ডেল',                           en: 'SMALL SHOULDER HANDLE' },
+    { bn: 'বিগ শোল্ডার হ্যান্ডেল',                            en: 'BIG SHOULDER HANDLE' },
+    { bn: 'জিপার পট্টি ইনসাইড',                              en: 'ZIPPER POTTI INSIDE' },
+    { bn: 'জিপার পট্টি আউটসাইড',                             en: 'ZIPPER POTTI OUTSIDE' },
+    { bn: 'শোল্ডার হ্যান্ডেল লুপ',                            en: 'SHOULDER HANDLE LOOP' },
+    { bn: 'আপার ইনসাইড পট্টি (ফ্রন্ট & ব্যাক)',                en: 'UPPER INSIDE POTTI (FRONT & BACK)' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' },
+    { bn: '', en: '' }
+];
+
+// extractEdgePaintFields — the header fields are read by fixed position
+// relative to the PDF download icon rather than by header text, since the
+// sheet doesn't reliably label every column. The icon is rendered right
+// after the "Batch No./Batch ID" column (anchorIdx below), so:
+//   colAt(anchorIdx + N) = value of the N-th column to the right of the icon
+function extractEdgePaintFields(headers, row, batchIdOverride) {
+    var anchorIdx = findHeaderIndex(headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (anchorIdx < 0) anchorIdx = 0;
+
+    function colAt(n) {
+        var v = row[anchorIdx + n];
+        return (v !== undefined && v !== null) ? String(v) : '';
+    }
+
+    return {
+        batchId:      (batchIdOverride !== undefined && batchIdOverride !== null && String(batchIdOverride) !== '')
+                          ? String(batchIdOverride)
+                          : colAt(1),   // 1st column to the right of the PDF icon
+        po:           colAt(14),       // 14th column to the right of the PDF icon
+        floorNo:      '',              // left blank
+        unit:         colAt(4),        // 4th column to the right of the PDF icon
+        styleNo:      colAt(10),       // 10th column to the right of the PDF icon
+        sku:          colAt(9),        // 9th column to the right of the PDF icon
+        fabricator:   colAt(20),       // 20th column to the right of the PDF icon
+        colour:       colAt(11),       // 11th column to the right of the PDF icon
+        quantity:     colAt(12),       // 12th column to the right of the PDF icon
+        etd:          colAt(13),       // 13th column to the right of the PDF icon
+        checkingDate: '',              // left blank
+        checkerName:  colAt(21),       // 21st column to the right of the PDF icon
+        remarks:      findFieldValue(headers, row, [/remarks/i])
+    };
+}
+
+function generateEdgePaintFormId() {
+    var rand = Math.floor(1000 + Math.random() * 9000);
+    return 'EDGEINK-' + rand + '-TRIO';
+}
+
+function formatEdgePaintGeneratedAt(date) {
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var pad2   = function (n) { return n < 10 ? '0' + n : '' + n; };
+    var h24    = date.getHours();
+    var ampm   = h24 >= 12 ? 'pm' : 'am';
+    var h12    = h24 % 12; if (h12 === 0) h12 = 12;
+    return pad2(date.getDate()) + '-' + months[date.getMonth()] + '-' + date.getFullYear() + ' ' +
+        pad2(h12) + ':' + pad2(date.getMinutes()) + ' ' + ampm;
+}
+
+function edgePaintInspectionStyles() {
+    return (
+        '@import url(\'https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&display=swap\');' +
+        '.epi-doc{font-family:Verdana,Geneva,sans-serif;}' +
+        '.epi-topbar{display:flex;justify-content:space-between;align-items:center;font-size:9px;font-weight:bold;color:#12224e;margin-bottom:4px;}' +
+        '.epi-company-name{font-size:11px;font-weight:bold;color:#12224e;letter-spacing:.3px;}' +
+        '.epi-info-block{margin-bottom:7px;}' +
+        '.epi-info-row{display:flex;border:1.5px solid #12224e;border-bottom:none;}' +
+        '.epi-info-row:last-child{border-bottom:1.5px solid #12224e;}' +
+        '.epi-info-cell{flex:1;border-right:1.5px solid #12224e;padding:6px 8px;min-height:26px;display:flex;align-items:baseline;gap:5px;}' +
+        '.epi-info-cell:last-child{border-right:none;}' +
+        '.epi-info-cell-wide{flex:2;}' +
+        '.epi-label{display:inline;font-size:10.5px;font-weight:bold;color:#12224e;letter-spacing:.2px;white-space:nowrap;}' +
+        '.epi-value{display:inline;font-size:13px;font-weight:bold;color:#0f172a;}' +
+        '.epi-remarks-box{border:1.5px solid #12224e;border-top:none;padding:5px 8px;margin-bottom:7px;display:flex;align-items:center;gap:8px;}' +
+        '.epi-remarks-box .epi-label{white-space:nowrap;}' +
+        '.epi-remarks-line{flex:1;border-bottom:1px solid #12224e;height:14px;}' +
+        '.epi-checker-row{display:flex;align-items:stretch;gap:8px;margin-bottom:8px;}' +
+        '.epi-checker-cell{flex:1;border:1.5px solid #12224e;padding:7px 8px;display:flex;align-items:baseline;gap:5px;}' +
+        '.epi-legend{flex:2;border:1.5px solid #12224e;padding:4px 8px;font-size:10px;font-weight:bold;color:#12224e;display:flex;align-items:center;}' +
+        '.epi-parts-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:10px;}' +
+        '.epi-parts-table th,.epi-parts-table td{border:1.2px solid #12224e;padding:4px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.25;}' +
+        '.epi-parts-table th{background:#f1f5f9;color:#12224e;font-weight:bold;}' +
+        '.epi-parts-table tbody td{height:32px;}' +
+        '.epi-col-sl{width:30px;color:#334155;}' +
+        '.epi-col-parts{width:42%;text-align:left;}' +
+        '.epi-col-parts .epi-bn{font-family:\'Noto Sans Bengali\',Verdana,sans-serif;font-size:14px;font-weight:bold;color:#0f172a;}' +
+        '.epi-col-parts .epi-en{font-size:12px;font-weight:bold;color:#334155;margin-left:5px;}' +
+        '.epi-col-qty{width:70px;}' +
+        '.epi-col-overlap{width:80px;}' +
+        '.epi-col-remarks{width:auto;text-align:left;}' +
+        '.epi-doc .sign-row{margin-top:calc(var(--fit-scale,1) * 100px);}'
+    );
+}
+
+function buildEdgePaintInfoRows(f) {
+    return (
+        '<div class="epi-info-row">' +
+            '<div class="epi-info-cell"><span class="epi-label">BATCH ID:</span><span class="epi-value">' + (esc(f.batchId) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell"><span class="epi-label">PO:</span><span class="epi-value">' + (esc(f.po) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell"><span class="epi-label">FLOOR NO.:</span><span class="epi-value">' + (esc(f.floorNo) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell"><span class="epi-label">UNIT:</span><span class="epi-value">' + (esc(f.unit) || '&nbsp;') + '</span></div>' +
+        '</div>' +
+        '<div class="epi-info-row">' +
+            '<div class="epi-info-cell"><span class="epi-label">STYLE NO.:</span><span class="epi-value">' + (esc(f.styleNo) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell"><span class="epi-label">SKU:</span><span class="epi-value">' + (esc(f.sku) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell epi-info-cell-wide"><span class="epi-label">FABRICATOR NAME/ NO.:</span><span class="epi-value">' + (esc(f.fabricator) || '&nbsp;') + '</span></div>' +
+        '</div>' +
+        '<div class="epi-info-row">' +
+            '<div class="epi-info-cell"><span class="epi-label">COLOUR:</span><span class="epi-value">' + (esc(f.colour) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell epi-info-cell-wide"><span class="epi-label">QTY:</span><span class="epi-value">' + (esc(f.quantity) || '&nbsp;') + '</span></div>' +
+        '</div>' +
+        '<div class="epi-info-row">' +
+            '<div class="epi-info-cell epi-info-cell-wide"><span class="epi-label">ETD:</span><span class="epi-value">' + (esc(f.etd) || '&nbsp;') + '</span></div>' +
+            '<div class="epi-info-cell epi-info-cell-wide"><span class="epi-label">CHECKING DATE:</span><span class="epi-value">' + (esc(f.checkingDate) || '&nbsp;') + '</span></div>' +
+        '</div>'
+    );
+}
+
+function buildEdgePaintPartsTable() {
+    var TOTAL_ROWS = 30;
+    var rows = [];
+    for (var i = 0; i < TOTAL_ROWS; i++) {
+        var part = EDGE_PAINT_PARTS_CHECKLIST[i];
+        var partCell = (part && part.en)
+            ? '<span class="epi-bn">' + esc(part.bn) + '</span><span class="epi-en">(' + esc(part.en) + ')</span>'
+            : '&nbsp;';
+        rows.push(
+            '<tr>' +
+                '<td class="epi-col-sl">' + (i < 9 ? '0' + (i + 1) : (i + 1)) + '</td>' +
+                '<td class="epi-col-parts">' + partCell + '</td>' +
+                '<td class="epi-col-qty">&nbsp;</td>' +
+                '<td class="epi-col-qty">&nbsp;</td>' +
+                '<td class="epi-col-overlap">&nbsp;</td>' +
+                '<td class="epi-col-remarks">&nbsp;</td>' +
+            '</tr>'
+        );
+    }
+
+    return (
+        '<table class="epi-parts-table">' +
+            '<thead>' +
+                '<tr>' +
+                    '<th class="epi-col-sl">SL.<br>NO.</th>' +
+                    '<th class="epi-col-parts">PARTS</th>' +
+                    '<th class="epi-col-qty">CHECKED<br>QTY</th>' +
+                    '<th class="epi-col-qty">REPAIR<br>QTY</th>' +
+                    '<th class="epi-col-overlap">OVERLAPPING<br>(YES/NO)</th>' +
+                    '<th class="epi-col-remarks">REMARKS</th>' +
+                '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows.join('') + '</tbody>' +
+        '</table>'
+    );
+}
+
+function buildEdgePaintPdfHtml(headers, row, batchIdOverride) {
+    var f = extractEdgePaintFields(headers, row, batchIdOverride);
+
+    var signHtml =
+        '<div class="sign-row">' +
+            '<div class="sign-cell">Signature of Edge Paint Inspector<span class="sign-line"></span></div>' +
+            '<div class="sign-cell">Signature of the Approving Authority<span class="sign-line"></span></div>' +
+        '</div>';
+
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>Edge-Paint Inspection Report' + (f.batchId ? ' - ' + esc(f.batchId) : '') + '</title>' +
+        '<style>' + checklistPdfBaseStyles() + edgePaintInspectionStyles() + '</style>' +
+        '</head><body><div class="doc epi-doc">' +
+            '<div class="epi-topbar">' +
+                '<div class="epi-company-name">Trio Trend Exports Pvt. Ltd.</div>' +
+                '<div>Generated at : ' + esc(formatEdgePaintGeneratedAt(new Date())) + '</div>' +
+            '</div>' +
+            '<div class="title">EDGE-PAINT INSPECTION REPORT</div>' +
+            '<div class="epi-info-block">' + buildEdgePaintInfoRows(f) + '</div>' +
+            '<div class="epi-remarks-box"><span class="epi-label">REMARKS (IF ANY)</span><span class="epi-remarks-line"></span></div>' +
+            '<div class="epi-checker-row">' +
+                '<div class="epi-checker-cell"><span class="epi-label">EDGE PAINT CHECKER NAME:</span><span class="epi-value">' + (esc(f.checkerName) || '&nbsp;') + '</span></div>' +
+                '<div class="epi-legend">OVERLAPPING — PLEASE TICK (&#10003;) HERE UNDER YES / NO</div>' +
+            '</div>' +
+            buildEdgePaintPartsTable() +
+            signHtml +
+        '</div></body></html>'
+    );
+}
+
 function fitChecklistToPage(win) {
     // Grows or shrinks row heights / section gaps (via the --fit-scale CSS
     // var) so the checklist fills the printable A4 area with no leftover
@@ -2945,6 +3218,161 @@ function downloadFsRowAsPdf(headers, row, batchIdOverride) {
 function downloadIqcRowAsPdf(headers, row, batchIdOverride) {
     try {
         openChecklistPrintWindow(buildIqcPdfHtml(headers, row, batchIdOverride));
+    } catch (err) {
+        showToast('error', 'PDF Error', 'Could not generate the PDF: ' + (err.message || err));
+    }
+}
+
+function downloadEdgePaintRowAsPdf(headers, row, batchIdOverride) {
+    try {
+        openChecklistPrintWindow(buildEdgePaintPdfHtml(headers, row, batchIdOverride));
+    } catch (err) {
+        showToast('error', 'PDF Error', 'Could not generate the PDF: ' + (err.message || err));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// END-LINE INSPECTION REPORT — reconstructed to match the approved printed
+// form exactly: title, two side-by-side batch-info blocks, separate quantity
+// boxes, a fixed 30-row checklist (SL NO. / REPAIRING REASON), and the two
+// "APPROVED BY" / "CHECKED BY" signature lines. The
+// batch info fields are read by fixed position relative to the PDF download
+// icon, same approach as extractEdgePaintFields above. The icon is rendered
+// right after the "Batch No./Batch ID" column (anchorIdx below), so:
+//   colAt(anchorIdx + N) = value of the N-th column to the right of the icon
+// ---------------------------------------------------------------------------
+function extractEndLineQcFields(headers, row, batchIdOverride) {
+    var anchorIdx = findHeaderIndex(headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (anchorIdx < 0) anchorIdx = 0;
+
+    function colAt(n) {
+        var v = row[anchorIdx + n];
+        return (v !== undefined && v !== null) ? String(v) : '';
+    }
+
+    return {
+        batchId:       (batchIdOverride !== undefined && batchIdOverride !== null && String(batchIdOverride) !== '')
+                           ? String(batchIdOverride)
+                           : colAt(1),    // 1st column to the right of the PDF icon
+        po:            colAt(14),        // 14th column to the right of the PDF icon
+        floorNo:       '',               // left blank
+        unit:          colAt(4),         // 4th column to the right of the PDF icon
+        styleNo:       colAt(10),        // 10th column to the right of the PDF icon
+        sku:           colAt(9),         // 9th column to the right of the PDF icon
+        fabricator:    colAt(5),         // 5th column to the right of the PDF icon
+        colour:        colAt(11),        // 11th column to the right of the PDF icon
+        quantity:      colAt(12),        // 12th column to the right of the PDF icon
+        endLineQcName: colAt(29),        // 29th column to the right of the PDF icon
+        etd:           colAt(13),        // 13th column to the right of the PDF icon
+        checkingDate:  ''                // left blank
+    };
+}
+
+function endLineQcInspectionStyles() {
+    return (
+        '.eqc-doc,.eqc-doc *{font-family:Verdana,Geneva,sans-serif;color:#000;}' +
+        '.eqc-topbar{display:flex;justify-content:space-between;align-items:center;margin:0 0 2px;font-size:8px;font-weight:700;}' +
+        '.eqc-doc .title{font-family:Verdana,Geneva,sans-serif;color:#000;font-size:22px;letter-spacing:1px;margin:0 0 4px;}' +
+        '.eqc-sheet{border:1.5px solid #000;padding:7px;margin-top:0;}' +
+        '.eqc-top{display:flex;gap:8px;margin:5px 0 14px;}' +
+        '.eqc-left{width:39%;}.eqc-right{width:61%;}' +
+        '.eqc-meta{width:100%;border-collapse:collapse;table-layout:fixed;}' +
+        '.eqc-meta td{border:1px solid #000;height:25px;padding:3px 5px;font-size:10px;vertical-align:middle;}' +
+        '.eqc-meta .eqc-label{font-weight:700;font-size:10px;white-space:nowrap;}' +
+        '.eqc-meta .eqc-value{font-size:9px;letter-spacing:.1px;}' +
+        '.eqc-meta .eqc-name{font-weight:700;font-size:9px;line-height:1.12;}' +
+        '.eqc-bottom{display:flex;gap:8px;margin-bottom:14px;}' +
+        '.eqc-summary{width:100%;border-collapse:collapse;table-layout:fixed;}' +
+        '.eqc-summary th,.eqc-summary td{border:1px solid #000;text-align:center;padding:3px;font-size:10px;}' +
+        '.eqc-summary th{height:20px;font-weight:700;white-space:nowrap;}' +
+        '.eqc-summary td{height:46px;}' +
+        '.eqc-table{width:100%;border-collapse:collapse;table-layout:fixed;}' +
+        '.eqc-table th,.eqc-table td{border:1px solid #000;padding:2px 4px;font-size:10px;text-align:center;vertical-align:middle;line-height:1;}' +
+        '.eqc-table th{height:21px;background:#fff;color:#000;font-size:10px;font-weight:700;}' +
+        '.eqc-table tbody td{height:22px;}' +
+        '.eqc-col-sl{width:72px;color:#000;font-weight:700;}' +
+        '.eqc-col-reason{width:auto;text-align:left;}' +
+        '.eqc-doc .sign-row{margin:calc(var(--fit-scale,1) * 115px) 0 0;}' +
+        '.eqc-doc .sign-cell{color:#000;font-size:9px;text-align:center;width:185px;}' +
+        '.eqc-doc .sign-line{display:block;width:100%;height:12px;margin:0 0 3px;border-color:#000;}'
+    );
+}
+
+function formatEndLineQcGeneratedAt(date) {
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var pad2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return pad2(date.getDate()) + '-' + months[date.getMonth()] + '-' + date.getFullYear() + ' ' +
+        pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
+}
+
+function buildEndLineQcInfoRows(f) {
+    return (
+        '<div class="eqc-top">' +
+            '<div class="eqc-left"><table class="eqc-meta"><tr><td><span class="eqc-label">BATCH ID&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.batchId) || '&nbsp;') + '</span></td><td><span class="eqc-label">PO&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.po) || '&nbsp;') + '</span></td></tr><tr><td><span class="eqc-label">STYLE NO.&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.styleNo) || '&nbsp;') + '</span></td><td><span class="eqc-label">SKU&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.sku) || '&nbsp;') + '</span></td></tr><tr><td><span class="eqc-label">COLOUR&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.colour) || '&nbsp;') + '</span></td><td><span class="eqc-label">QTY&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.quantity) || '&nbsp;') + '</span></td></tr></table></div>' +
+            '<div class="eqc-right"><table class="eqc-meta"><tr><td style="width:67%"><span class="eqc-label">FLOOR NO.&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.floorNo) || '&nbsp;') + '</span></td><td><span class="eqc-label">UNIT&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.unit) || '&nbsp;') + '</span></td></tr><tr><td><span class="eqc-label">FABRICATOR NAME/ NO.&nbsp; :</span></td><td><span class="eqc-value">' + (esc(f.fabricator) || '&nbsp;') + '</span></td></tr><tr><td><span class="eqc-label">END-LINE QC NAME&nbsp; :</span></td><td><span class="eqc-value eqc-name">' + (esc(f.endLineQcName) || '&nbsp;') + '</span></td></tr></table></div>' +
+        '</div>' +
+        '<div class="eqc-bottom">' +
+            '<div class="eqc-left"><table class="eqc-meta"><tr><td><span class="eqc-label">ETD&nbsp; :</span>&nbsp; <span class="eqc-value" style="font-weight:700">' + (esc(f.etd) || '&nbsp;') + '</span></td></tr></table></div>' +
+            '<div class="eqc-right"><table class="eqc-meta"><tr><td><span class="eqc-label">CHECKING DATE&nbsp; :</span>&nbsp; <span class="eqc-value">' + (esc(f.checkingDate) || '&nbsp;') + '</span></td></tr></table></div>' +
+        '</div>'
+    );
+}
+
+function buildEndLineQcChecklistTable() {
+    var TOTAL_ROWS = 30;
+    var rows = [];
+    for (var i = 0; i < TOTAL_ROWS; i++) {
+        rows.push(
+            '<tr>' +
+                '<td class="eqc-col-sl">' + (i + 1) + '</td>' +
+                '<td class="eqc-col-reason">&nbsp;</td>' +
+            '</tr>'
+        );
+    }
+
+    return (
+        '<table class="eqc-table">' +
+            '<thead>' +
+                '<tr>' +
+                    '<th class="eqc-col-sl">SL. NO.</th>' +
+                    '<th class="eqc-col-reason">REPAIRING REASON</th>' +
+                '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows.join('') + '</tbody>' +
+        '</table>'
+    );
+}
+
+function buildEndLineQcPdfHtml(headers, row, batchIdOverride) {
+    var f = extractEndLineQcFields(headers, row, batchIdOverride);
+    var generatedAt = formatEndLineQcGeneratedAt(new Date());
+
+    var signHtml =
+        '<div class="sign-row">' +
+            '<div class="sign-cell"><span class="sign-line"></span>APPROVED BY</div>' +
+            '<div class="sign-cell"><span class="sign-line"></span>CHECKED BY</div>' +
+        '</div>';
+
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>End-Line Inspection Report' + (f.batchId ? ' - ' + esc(f.batchId) : '') + '</title>' +
+        '<style>' + checklistPdfBaseStyles() + endLineQcInspectionStyles() + '</style>' +
+        '</head><body><div class="doc eqc-doc">' +
+            '<div class="eqc-topbar"><span>Trio Trens Exports Pvt. Ltd.</span><span>Generated At : ' + esc(generatedAt) + '</span></div>' +
+            '<div class="title">END-LINE INSPECTION REPORT</div>' +
+            '<div class="eqc-sheet">' +
+            buildEndLineQcInfoRows(f) +
+            '<div class="eqc-bottom"><div class="eqc-left"><table class="eqc-summary"><thead><tr><th>CHECKED QTY</th></tr></thead><tbody><tr><td>&nbsp;</td></tr></tbody></table></div><div class="eqc-right"><table class="eqc-summary"><thead><tr><th>REPAIR QTY</th><th>QTY SEND TO WAREHOUSE</th></tr></thead><tbody><tr><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table></div></div>' +
+            buildEndLineQcChecklistTable() +
+            '</div>' +
+            signHtml +
+        '</div></body></html>'
+    );
+}
+
+function downloadEndLineQcRowAsPdf(headers, row, batchIdOverride) {
+    try {
+        openChecklistPrintWindow(buildEndLineQcPdfHtml(headers, row, batchIdOverride));
     } catch (err) {
         showToast('error', 'PDF Error', 'Could not generate the PDF: ' + (err.message || err));
     }
@@ -3078,7 +3506,7 @@ function initReports() {
     });
     }
 
-    [['dice', 'kpi-dice-summary'], ['forma', 'kpi-forma-summary']].forEach(function (item) {
+    [['dice', 'kpi-dice-summary'], ['forma', 'kpi-forma-summary'], ['domestic', 'kpi-submitted-domestic'], ['import', 'kpi-submitted-import']].forEach(function (item) {
         var type = item[0];
         var card = document.getElementById(item[1]);
         if (!card) return;
@@ -3091,7 +3519,7 @@ function initReports() {
         button.addEventListener('click', showReportsKpiView);
     });
 
-    ['dice', 'forma'].forEach(function (type) {
+    ['dice', 'forma', 'domestic', 'import'].forEach(function (type) {
         var config = getTrackerSummaryConfig(type);
         var prefix = config.prefix;
         var state  = getTrackerSummaryState(type);
@@ -3348,9 +3776,20 @@ function showPdfKpiView() {
     var kpiView = document.getElementById('pdf-kpi-view');
     var fsView  = document.getElementById('pdf-floor-supervisor-view');
     var iqcView = document.getElementById('pdf-inline-qc-view');
+    var eqcView = document.getElementById('pdf-endline-qc-view');
+    var epView  = document.getElementById('pdf-edge-paint-view');
     if (kpiView) kpiView.style.display = '';
     if (fsView)  fsView.style.display  = 'none';
     if (iqcView) iqcView.style.display = 'none';
+    if (eqcView) eqcView.style.display = 'none';
+    if (epView)  epView.style.display  = 'none';
+}
+
+function showStoreKpiView() {
+    var kpiView    = document.getElementById('store-kpi-view');
+    var aiDataView = document.getElementById('store-ai-data-view');
+    if (kpiView)    kpiView.style.display    = '';
+    if (aiDataView) aiDataView.style.display = 'none';
 }
 
 function showBatchListCuttingView() {
@@ -4616,6 +5055,809 @@ function downloadEdgePaintExcel() {
         rows: rows,
         sheetName: 'Edge Paint Details',
         filenamePrefix: 'Edge_Paint_Details'
+    });
+}
+
+// ===========================================================================
+// PDF - Edge Paint (same data range as Production Data → Edge Paint Details)
+// ===========================================================================
+
+var pdfEdgePaintTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',
+    dateTo:        ''
+};
+
+// The Google Sheet table starts at column B, so FMS Upload Timestamp is index 0.
+function getPdfEdgePaintDateColIndex() { return 0; }
+
+function updatePdfEdgePaintDateClearBtn() {
+    var btn = document.getElementById('pdf-edge-paint-date-clear');
+    if (btn) btn.style.display = (pdfEdgePaintTableData.dateFrom || pdfEdgePaintTableData.dateTo) ? '' : 'none';
+}
+
+function updatePdfEdgePaintSearchClearBtn() {
+    var s = document.getElementById('pdf-edge-paint-data-search');
+    var b = document.getElementById('pdf-edge-paint-data-search-clear');
+    if (s && b) b.style.display = s.value ? '' : 'none';
+}
+
+function fetchPdfEdgePaintDetailsAndRender() {
+    var emptyEl  = document.getElementById('pdf-edge-paint-data-empty');
+    var tableEl  = document.getElementById('pdf-edge-paint-data-table');
+    var footerEl = document.getElementById('pdf-edge-paint-data-footer');
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data...'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching Edge Paint details...');
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function (r) { hideSpinner(); onPdfEdgePaintDataLoaded(r); })
+            .withFailureHandler(function (e) { hideSpinner(); onPdfEdgePaintDataError(e.message || 'Failed to load data.'); })
+            .getEdgePaintDetailsData();
+        return;
+    }
+    jsonp({ action: 'getEdgePaintDetailsData' }, function (err, result) {
+        hideSpinner();
+        if (err) { onPdfEdgePaintDataError(err.message); return; }
+        onPdfEdgePaintDataLoaded(result);
+    });
+}
+
+function onPdfEdgePaintDataLoaded(result) {
+    if (!result || !result.success) {
+        onPdfEdgePaintDataError((result && result.error) || 'Failed to load data.');
+        return;
+    }
+    pdfEdgePaintTableData.headers       = result.headers || [];
+    pdfEdgePaintTableData.allRows       = result.rows    || [];
+    pdfEdgePaintTableData.filteredRows  = pdfEdgePaintTableData.allRows.slice();
+    pdfEdgePaintTableData.sortCol       = -1;
+    pdfEdgePaintTableData.sortAsc       = true;
+    pdfEdgePaintTableData.page          = 1;
+    pdfEdgePaintTableData.searchQuery   = '';
+    pdfEdgePaintTableData.columnFilters = {};
+    pdfEdgePaintTableData.dateFrom      = '';
+    pdfEdgePaintTableData.dateTo        = '';
+
+    var s = document.getElementById('pdf-edge-paint-data-search');
+    if (s) s.value = '';
+    updatePdfEdgePaintSearchClearBtn();
+
+    var df = document.getElementById('pdf-edge-paint-date-from');
+    var dt = document.getElementById('pdf-edge-paint-date-to');
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+    updatePdfEdgePaintDateClearBtn();
+
+    var labelEl = document.getElementById('pdf-edge-paint-date-col-label');
+    var dateCol = getPdfEdgePaintDateColIndex();
+    if (labelEl && pdfEdgePaintTableData.headers[dateCol]) {
+        labelEl.textContent = pdfEdgePaintTableData.headers[dateCol];
+    }
+
+    buildPdfEdgePaintTableHeaders();
+    renderPdfEdgePaintTable();
+}
+
+function onPdfEdgePaintDataError(msg) {
+    var emptyEl = document.getElementById('pdf-edge-paint-data-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById('pdf-edge-paint-data-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById('pdf-edge-paint-data-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', 'Data Error', msg);
+}
+
+function buildPdfEdgePaintTableHeaders() {
+    var thead = document.getElementById('pdf-edge-paint-data-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    var batchNoIdx = findHeaderIndex(pdfEdgePaintTableData.headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (batchNoIdx < 0) batchNoIdx = 0;
+
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    pdfEdgePaintTableData.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-pdf-edge-paint-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onPdfEdgePaintSortColumn(i); });
+        trHead.appendChild(th);
+        if (i === batchNoIdx) {
+            var thPdf = document.createElement('th');
+            thPdf.className = 'dt-th dt-th-pdf';
+            thPdf.textContent = 'PDF';
+            trHead.appendChild(thPdf);
+        }
+    });
+
+    var trFilter = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+
+    pdfEdgePaintTableData.headers.forEach(function (h, i) {
+        var th    = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap  = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dt-col-filter';
+        input.placeholder = 'Filter...';
+        input.value = pdfEdgePaintTableData.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'dt-col-filter-clear';
+        clearBtn.title = 'Clear filter';
+        clearBtn.innerHTML = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            pdfEdgePaintTableData.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyPdfEdgePaintFilters();
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            pdfEdgePaintTableData.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyPdfEdgePaintFilters();
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+        if (i === batchNoIdx) {
+            var thFilterPdf = document.createElement('th');
+            thFilterPdf.className = 'dt-filter-cell dt-filter-cell-pdf';
+            trFilter.appendChild(thFilterPdf);
+        }
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onPdfEdgePaintSortColumn(colIndex) {
+    if (pdfEdgePaintTableData.sortCol === colIndex) {
+        pdfEdgePaintTableData.sortAsc = !pdfEdgePaintTableData.sortAsc;
+    } else {
+        pdfEdgePaintTableData.sortCol = colIndex;
+        pdfEdgePaintTableData.sortAsc = true;
+    }
+    updatePdfEdgePaintSortIcons();
+    applyPdfEdgePaintFilters();
+}
+
+function updatePdfEdgePaintSortIcons() {
+    document.querySelectorAll('[data-pdf-edge-paint-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-pdf-edge-paint-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === pdfEdgePaintTableData.sortCol) {
+            icon.textContent = pdfEdgePaintTableData.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function applyPdfEdgePaintFilters() {
+    var query      = pdfEdgePaintTableData.searchQuery;
+    var colFilters = pdfEdgePaintTableData.columnFilters;
+    var dateColIdx = getPdfEdgePaintDateColIndex();
+    var dateFrom = pdfEdgePaintTableData.dateFrom ? new Date(pdfEdgePaintTableData.dateFrom + 'T00:00:00') : null;
+    var dateTo = pdfEdgePaintTableData.dateTo ? new Date(pdfEdgePaintTableData.dateTo + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    pdfEdgePaintTableData.filteredRows = pdfEdgePaintTableData.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0 && dateColIdx < row.length) {
+            var parsed = parseCreatedAt(row[dateColIdx]);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (pdfEdgePaintTableData.sortCol >= 0) {
+        var sc = pdfEdgePaintTableData.sortCol;
+        pdfEdgePaintTableData.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return pdfEdgePaintTableData.sortAsc ? cmp : -cmp;
+        });
+    }
+
+    pdfEdgePaintTableData.page = 1;
+    renderPdfEdgePaintTable();
+}
+
+function applyPdfEdgePaintSearch(query) {
+    pdfEdgePaintTableData.searchQuery = (query || '').trim().toLowerCase();
+    applyPdfEdgePaintFilters();
+}
+
+function renderPdfEdgePaintTable() {
+    var tbody      = document.getElementById('pdf-edge-paint-data-tbody');
+    var tableEl    = document.getElementById('pdf-edge-paint-data-table');
+    var emptyEl    = document.getElementById('pdf-edge-paint-data-empty');
+    var footerEl   = document.getElementById('pdf-edge-paint-data-footer');
+    var countBadge = document.getElementById('pdf-edge-paint-data-count-badge');
+    if (!tbody) return;
+
+    var total      = pdfEdgePaintTableData.filteredRows.length;
+    var pageSize   = pdfEdgePaintTableData.pageSize;
+    var page       = pdfEdgePaintTableData.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    pdfEdgePaintTableData.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = pdfEdgePaintTableData.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', pdfEdgePaintTableData.headers.length + 2);
+        var hasFilter = Object.keys(pdfEdgePaintTableData.columnFilters).some(function (k) {
+            return (pdfEdgePaintTableData.columnFilters[k] || '').trim() !== '';
+        });
+        var hasDate = pdfEdgePaintTableData.dateFrom || pdfEdgePaintTableData.dateTo;
+        tdEmpty.innerHTML =
+            '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (pdfEdgePaintTableData.searchQuery || hasFilter || hasDate
+                ? 'No records match the current filter.'
+                : (pdfEdgePaintTableData.allRows.length === 0 ? 'No data found in Edge Paint Details.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById('pdf-edge-paint-data-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    var batchNoIdx = findHeaderIndex(pdfEdgePaintTableData.headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (batchNoIdx < 0) batchNoIdx = 0;
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        pdfEdgePaintTableData.headers.forEach(function (header, ci) {
+            var td = document.createElement('td');
+            td.className = 'dt-td';
+            var cellVal = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            if (pdfEdgePaintTableData.searchQuery && cellVal.toLowerCase().indexOf(pdfEdgePaintTableData.searchQuery) !== -1) {
+                td.innerHTML = esc(cellVal).replace(
+                    new RegExp(escapeRegex(esc(pdfEdgePaintTableData.searchQuery)), 'gi'),
+                    '<mark class="dt-highlight">$&</mark>'
+                );
+            } else {
+                td.textContent = cellVal;
+            }
+            tr.appendChild(td);
+            if (ci === batchNoIdx) {
+                var tdPdf = document.createElement('td');
+                tdPdf.className = 'dt-td dt-td-pdf';
+                var pdfBtn = document.createElement('button');
+                pdfBtn.type = 'button';
+                pdfBtn.className = 'dt-pdf-download-btn';
+                pdfBtn.title = 'Download PDF';
+                pdfBtn.innerHTML = '<span class="material-icons-round">download</span>';
+                pdfBtn.addEventListener('click', function () {
+                    downloadEdgePaintRowAsPdf(pdfEdgePaintTableData.headers, row);
+                });
+                tdPdf.appendChild(pdfBtn);
+                tr.appendChild(tdPdf);
+            }
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById('pdf-edge-paint-data-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (pdfEdgePaintTableData.allRows.length !== total ? ' (filtered from ' + pdfEdgePaintTableData.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildPdfEdgePaintPagination(page, totalPages);
+}
+
+function buildPdfEdgePaintPagination(current, total) {
+    var container = document.getElementById('pdf-edge-paint-data-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                pdfEdgePaintTableData.page = page;
+                renderPdfEdgePaintTable();
+                var wrap = document.getElementById('pdf-edge-paint-data-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '...' || item === 'â€¦') {
+            var el = document.createElement('span');
+            el.className = 'dt-page-ellipsis';
+            el.textContent = '...';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function downloadPdfEdgePaintExcel() {
+    var headers = pdfEdgePaintTableData.headers;
+    var rows    = pdfEdgePaintTableData.filteredRows;
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Edge Paint Details',
+        filenamePrefix: 'PDF_Edge_Paint_Details'
+    });
+}
+
+// ===========================================================================
+// PDF Page - End-Line QC Details
+// (reads B7:AE from the "END-LINE QC" sheet, row 7 = header row — same
+// getEndLineQcDetailsData() backend call used by the Batch List section —
+// implemented the same way as the PDF Edge-Paint section above.)
+// ===========================================================================
+
+var pdfEndLineQcTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',
+    dateTo:        ''
+};
+
+// The Google Sheet table starts at column B, so FMS Upload Timestamp is index 0.
+function getPdfEndLineQcDateColIndex() { return 0; }
+
+function updatePdfEndLineQcDateClearBtn() {
+    var btn = document.getElementById('pdf-endline-qc-date-clear');
+    if (btn) btn.style.display = (pdfEndLineQcTableData.dateFrom || pdfEndLineQcTableData.dateTo) ? '' : 'none';
+}
+
+function updatePdfEndLineQcSearchClearBtn() {
+    var s = document.getElementById('pdf-endline-qc-data-search');
+    var b = document.getElementById('pdf-endline-qc-data-search-clear');
+    if (s && b) b.style.display = s.value ? '' : 'none';
+}
+
+function fetchPdfEndLineQcDetailsAndRender() {
+    var emptyEl  = document.getElementById('pdf-endline-qc-data-empty');
+    var tableEl  = document.getElementById('pdf-endline-qc-data-table');
+    var footerEl = document.getElementById('pdf-endline-qc-data-footer');
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data...'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching End-Line QC details...');
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function (r) { hideSpinner(); onPdfEndLineQcDataLoaded(r); })
+            .withFailureHandler(function (e) { hideSpinner(); onPdfEndLineQcDataError(e.message || 'Failed to load data.'); })
+            .getEndLineQcDetailsData();
+        return;
+    }
+    jsonp({ action: 'getEndLineQcDetailsData' }, function (err, result) {
+        hideSpinner();
+        if (err) { onPdfEndLineQcDataError(err.message); return; }
+        onPdfEndLineQcDataLoaded(result);
+    });
+}
+
+function onPdfEndLineQcDataLoaded(result) {
+    if (!result || !result.success) {
+        onPdfEndLineQcDataError((result && result.error) || 'Failed to load data.');
+        return;
+    }
+    pdfEndLineQcTableData.headers       = result.headers || [];
+    pdfEndLineQcTableData.allRows       = result.rows    || [];
+    pdfEndLineQcTableData.filteredRows  = pdfEndLineQcTableData.allRows.slice();
+    pdfEndLineQcTableData.sortCol       = -1;
+    pdfEndLineQcTableData.sortAsc       = true;
+    pdfEndLineQcTableData.page          = 1;
+    pdfEndLineQcTableData.searchQuery   = '';
+    pdfEndLineQcTableData.columnFilters = {};
+    pdfEndLineQcTableData.dateFrom      = '';
+    pdfEndLineQcTableData.dateTo        = '';
+
+    var s = document.getElementById('pdf-endline-qc-data-search');
+    if (s) s.value = '';
+    updatePdfEndLineQcSearchClearBtn();
+
+    var df = document.getElementById('pdf-endline-qc-date-from');
+    var dt = document.getElementById('pdf-endline-qc-date-to');
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+    updatePdfEndLineQcDateClearBtn();
+
+    var labelEl = document.getElementById('pdf-endline-qc-date-col-label');
+    var dateCol = getPdfEndLineQcDateColIndex();
+    if (labelEl && pdfEndLineQcTableData.headers[dateCol]) {
+        labelEl.textContent = pdfEndLineQcTableData.headers[dateCol];
+    }
+
+    buildPdfEndLineQcTableHeaders();
+    renderPdfEndLineQcTable();
+}
+
+function onPdfEndLineQcDataError(msg) {
+    var emptyEl = document.getElementById('pdf-endline-qc-data-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById('pdf-endline-qc-data-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById('pdf-endline-qc-data-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', 'Data Error', msg);
+}
+
+function buildPdfEndLineQcTableHeaders() {
+    var thead = document.getElementById('pdf-endline-qc-data-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    var batchNoIdx = findHeaderIndex(pdfEndLineQcTableData.headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (batchNoIdx < 0) batchNoIdx = 0;
+
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    pdfEndLineQcTableData.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-pdf-endline-qc-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onPdfEndLineQcSortColumn(i); });
+        trHead.appendChild(th);
+        if (i === batchNoIdx) {
+            var thPdf = document.createElement('th');
+            thPdf.className = 'dt-th dt-th-pdf';
+            thPdf.textContent = 'PDF';
+            trHead.appendChild(thPdf);
+        }
+    });
+
+    var trFilter = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+
+    pdfEndLineQcTableData.headers.forEach(function (h, i) {
+        var th    = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap  = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dt-col-filter';
+        input.placeholder = 'Filter...';
+        input.value = pdfEndLineQcTableData.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'dt-col-filter-clear';
+        clearBtn.title = 'Clear filter';
+        clearBtn.innerHTML = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            pdfEndLineQcTableData.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyPdfEndLineQcFilters();
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            pdfEndLineQcTableData.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyPdfEndLineQcFilters();
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+        if (i === batchNoIdx) {
+            var thFilterPdf = document.createElement('th');
+            thFilterPdf.className = 'dt-filter-cell dt-filter-cell-pdf';
+            trFilter.appendChild(thFilterPdf);
+        }
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onPdfEndLineQcSortColumn(colIndex) {
+    if (pdfEndLineQcTableData.sortCol === colIndex) {
+        pdfEndLineQcTableData.sortAsc = !pdfEndLineQcTableData.sortAsc;
+    } else {
+        pdfEndLineQcTableData.sortCol = colIndex;
+        pdfEndLineQcTableData.sortAsc = true;
+    }
+    updatePdfEndLineQcSortIcons();
+    applyPdfEndLineQcFilters();
+}
+
+function updatePdfEndLineQcSortIcons() {
+    document.querySelectorAll('[data-pdf-endline-qc-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-pdf-endline-qc-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === pdfEndLineQcTableData.sortCol) {
+            icon.textContent = pdfEndLineQcTableData.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function applyPdfEndLineQcFilters() {
+    var query      = pdfEndLineQcTableData.searchQuery;
+    var colFilters = pdfEndLineQcTableData.columnFilters;
+    var dateColIdx = getPdfEndLineQcDateColIndex();
+    var dateFrom = pdfEndLineQcTableData.dateFrom ? new Date(pdfEndLineQcTableData.dateFrom + 'T00:00:00') : null;
+    var dateTo = pdfEndLineQcTableData.dateTo ? new Date(pdfEndLineQcTableData.dateTo + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    pdfEndLineQcTableData.filteredRows = pdfEndLineQcTableData.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0 && dateColIdx < row.length) {
+            var parsed = parseCreatedAt(row[dateColIdx]);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (pdfEndLineQcTableData.sortCol >= 0) {
+        var sc = pdfEndLineQcTableData.sortCol;
+        pdfEndLineQcTableData.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return pdfEndLineQcTableData.sortAsc ? cmp : -cmp;
+        });
+    }
+
+    pdfEndLineQcTableData.page = 1;
+    renderPdfEndLineQcTable();
+}
+
+function applyPdfEndLineQcSearch(query) {
+    pdfEndLineQcTableData.searchQuery = (query || '').trim().toLowerCase();
+    applyPdfEndLineQcFilters();
+}
+
+function renderPdfEndLineQcTable() {
+    var tbody      = document.getElementById('pdf-endline-qc-data-tbody');
+    var tableEl    = document.getElementById('pdf-endline-qc-data-table');
+    var emptyEl    = document.getElementById('pdf-endline-qc-data-empty');
+    var footerEl   = document.getElementById('pdf-endline-qc-data-footer');
+    var countBadge = document.getElementById('pdf-endline-qc-data-count-badge');
+    if (!tbody) return;
+
+    var total      = pdfEndLineQcTableData.filteredRows.length;
+    var pageSize   = pdfEndLineQcTableData.pageSize;
+    var page       = pdfEndLineQcTableData.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    pdfEndLineQcTableData.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = pdfEndLineQcTableData.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', pdfEndLineQcTableData.headers.length + 2);
+        var hasFilter = Object.keys(pdfEndLineQcTableData.columnFilters).some(function (k) {
+            return (pdfEndLineQcTableData.columnFilters[k] || '').trim() !== '';
+        });
+        var hasDate = pdfEndLineQcTableData.dateFrom || pdfEndLineQcTableData.dateTo;
+        tdEmpty.innerHTML =
+            '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (pdfEndLineQcTableData.searchQuery || hasFilter || hasDate
+                ? 'No records match the current filter.'
+                : (pdfEndLineQcTableData.allRows.length === 0 ? 'No data found in End-Line QC Details.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById('pdf-endline-qc-data-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    var batchNoIdx = findHeaderIndex(pdfEndLineQcTableData.headers, [/batch\s*no\.?/i, /batch\s*id/i]);
+    if (batchNoIdx < 0) batchNoIdx = 0;
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        pdfEndLineQcTableData.headers.forEach(function (header, ci) {
+            var td = document.createElement('td');
+            td.className = 'dt-td';
+            var cellVal = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            if (pdfEndLineQcTableData.searchQuery && cellVal.toLowerCase().indexOf(pdfEndLineQcTableData.searchQuery) !== -1) {
+                td.innerHTML = esc(cellVal).replace(
+                    new RegExp(escapeRegex(esc(pdfEndLineQcTableData.searchQuery)), 'gi'),
+                    '<mark class="dt-highlight">$&</mark>'
+                );
+            } else {
+                td.textContent = cellVal;
+            }
+            tr.appendChild(td);
+            if (ci === batchNoIdx) {
+                var tdPdf = document.createElement('td');
+                tdPdf.className = 'dt-td dt-td-pdf';
+                var pdfBtn = document.createElement('button');
+                pdfBtn.type = 'button';
+                pdfBtn.className = 'dt-pdf-download-btn';
+                pdfBtn.title = 'Download PDF';
+                pdfBtn.innerHTML = '<span class="material-icons-round">download</span>';
+                pdfBtn.addEventListener('click', function () {
+                    downloadEndLineQcRowAsPdf(pdfEndLineQcTableData.headers, row);
+                });
+                tdPdf.appendChild(pdfBtn);
+                tr.appendChild(tdPdf);
+            }
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById('pdf-endline-qc-data-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (pdfEndLineQcTableData.allRows.length !== total ? ' (filtered from ' + pdfEndLineQcTableData.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildPdfEndLineQcPagination(page, totalPages);
+}
+
+function buildPdfEndLineQcPagination(current, total) {
+    var container = document.getElementById('pdf-endline-qc-data-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                pdfEndLineQcTableData.page = page;
+                renderPdfEndLineQcTable();
+                var wrap = document.getElementById('pdf-endline-qc-data-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '...' || item === 'â€¦') {
+            var el = document.createElement('span');
+            el.className = 'dt-page-ellipsis';
+            el.textContent = '...';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function downloadPdfEndLineQcExcel() {
+    var headers = pdfEndLineQcTableData.headers;
+    var rows    = pdfEndLineQcTableData.filteredRows;
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'End-Line QC Details',
+        filenamePrefix: 'PDF_End_Line_QC_Details'
     });
 }
 
@@ -6568,6 +7810,8 @@ function init() {
 
     fetchDropdowns();
     initPdfPage();
+    initPdfEdgePaintTable();
+    initPdfEndLineQcTable();
     initFloorSupervisor();
     initInlineQc();
 }
@@ -6613,6 +7857,193 @@ function initPdfPage() {
     var backIqc = document.getElementById('btn-back-pdf-iqc');
     if (backIqc) {
         backIqc.addEventListener('click', function () { showPdfKpiView(); });
+    }
+
+    var kpiEqc = document.getElementById('kpi-pdf-endline-qc');
+    if (kpiEqc) {
+        kpiEqc.addEventListener('click', function () {
+            var kpi = document.getElementById('pdf-kpi-view');
+            var eqv = document.getElementById('pdf-endline-qc-view');
+            if (kpi) kpi.style.display = 'none';
+            if (eqv) eqv.style.display = '';
+            if (pdfEndLineQcTableData.allRows.length === 0) { fetchPdfEndLineQcDetailsAndRender(); }
+            else { renderPdfEndLineQcTable(); }
+        });
+        kpiEqc.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kpiEqc.click(); }
+        });
+    }
+
+    var backEqc = document.getElementById('btn-back-pdf-endline-qc');
+    if (backEqc) {
+        backEqc.addEventListener('click', function () { showPdfKpiView(); });
+    }
+
+    var kpiEp = document.getElementById('kpi-pdf-edge-paint');
+    if (kpiEp) {
+        kpiEp.addEventListener('click', function () {
+            var kpi = document.getElementById('pdf-kpi-view');
+            var epv = document.getElementById('pdf-edge-paint-view');
+            if (kpi) kpi.style.display = 'none';
+            if (epv) epv.style.display = '';
+            if (pdfEdgePaintTableData.allRows.length === 0) { fetchPdfEdgePaintDetailsAndRender(); }
+            else { renderPdfEdgePaintTable(); }
+        });
+        kpiEp.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kpiEp.click(); }
+        });
+    }
+
+    var backEp = document.getElementById('btn-back-pdf-edge-paint');
+    if (backEp) {
+        backEp.addEventListener('click', function () { showPdfKpiView(); });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PDF Page — Edge-Paint sub-view wiring (search, date filter, refresh, excel)
+// ---------------------------------------------------------------------------
+function initPdfEdgePaintTable() {
+    var edgePaintExcelBtn = document.getElementById('btn-download-pdf-edge-paint-excel');
+    if (edgePaintExcelBtn) edgePaintExcelBtn.addEventListener('click', function () { downloadPdfEdgePaintExcel(); });
+
+    var edgePaintRefreshBtn = document.getElementById('btn-refresh-pdf-edge-paint-data');
+    if (edgePaintRefreshBtn) {
+        edgePaintRefreshBtn.addEventListener('click', function () {
+            pdfEdgePaintTableData.allRows       = [];
+            pdfEdgePaintTableData.columnFilters = {};
+            fetchPdfEdgePaintDetailsAndRender();
+        });
+    }
+
+    var edgePaintSearchEl = document.getElementById('pdf-edge-paint-data-search');
+    if (edgePaintSearchEl) {
+        edgePaintSearchEl.addEventListener('input', function () {
+            updatePdfEdgePaintSearchClearBtn();
+            applyPdfEdgePaintSearch(edgePaintSearchEl.value);
+        });
+    }
+    var edgePaintClearSearch = document.getElementById('pdf-edge-paint-data-search-clear');
+    if (edgePaintClearSearch) {
+        edgePaintClearSearch.addEventListener('click', function () {
+            var s = document.getElementById('pdf-edge-paint-data-search');
+            if (s) { s.value = ''; s.focus(); }
+            updatePdfEdgePaintSearchClearBtn();
+            applyPdfEdgePaintSearch('');
+        });
+    }
+
+    var edgePaintDateFrom = document.getElementById('pdf-edge-paint-date-from');
+    if (edgePaintDateFrom) {
+        edgePaintDateFrom.addEventListener('change', function () {
+            pdfEdgePaintTableData.dateFrom = edgePaintDateFrom.value;
+            updatePdfEdgePaintDateClearBtn();
+            applyPdfEdgePaintFilters();
+        });
+    }
+    var edgePaintDateTo = document.getElementById('pdf-edge-paint-date-to');
+    if (edgePaintDateTo) {
+        edgePaintDateTo.addEventListener('change', function () {
+            pdfEdgePaintTableData.dateTo = edgePaintDateTo.value;
+            updatePdfEdgePaintDateClearBtn();
+            applyPdfEdgePaintFilters();
+        });
+    }
+    var edgePaintDateClear = document.getElementById('pdf-edge-paint-date-clear');
+    if (edgePaintDateClear) {
+        edgePaintDateClear.addEventListener('click', function () {
+            pdfEdgePaintTableData.dateFrom = '';
+            pdfEdgePaintTableData.dateTo   = '';
+            var f = document.getElementById('pdf-edge-paint-date-from');
+            var t = document.getElementById('pdf-edge-paint-date-to');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            updatePdfEdgePaintDateClearBtn();
+            applyPdfEdgePaintFilters();
+        });
+    }
+
+    var edgePaintPageSize = document.getElementById('pdf-edge-paint-data-page-size');
+    if (edgePaintPageSize) {
+        edgePaintPageSize.addEventListener('change', function () {
+            pdfEdgePaintTableData.pageSize = parseInt(edgePaintPageSize.value, 10) || 25;
+            pdfEdgePaintTableData.page = 1;
+            renderPdfEdgePaintTable();
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PDF Page — End-Line QC sub-view wiring (search, date filter, refresh, excel)
+// implemented the same way as initPdfEdgePaintTable() above.
+// ---------------------------------------------------------------------------
+function initPdfEndLineQcTable() {
+    var endLineQcExcelBtn = document.getElementById('btn-download-pdf-endline-qc-excel');
+    if (endLineQcExcelBtn) endLineQcExcelBtn.addEventListener('click', function () { downloadPdfEndLineQcExcel(); });
+
+    var endLineQcRefreshBtn = document.getElementById('btn-refresh-pdf-endline-qc-data');
+    if (endLineQcRefreshBtn) {
+        endLineQcRefreshBtn.addEventListener('click', function () {
+            pdfEndLineQcTableData.allRows       = [];
+            pdfEndLineQcTableData.columnFilters = {};
+            fetchPdfEndLineQcDetailsAndRender();
+        });
+    }
+
+    var endLineQcSearchEl = document.getElementById('pdf-endline-qc-data-search');
+    if (endLineQcSearchEl) {
+        endLineQcSearchEl.addEventListener('input', function () {
+            updatePdfEndLineQcSearchClearBtn();
+            applyPdfEndLineQcSearch(endLineQcSearchEl.value);
+        });
+    }
+    var endLineQcClearSearch = document.getElementById('pdf-endline-qc-data-search-clear');
+    if (endLineQcClearSearch) {
+        endLineQcClearSearch.addEventListener('click', function () {
+            var s = document.getElementById('pdf-endline-qc-data-search');
+            if (s) { s.value = ''; s.focus(); }
+            updatePdfEndLineQcSearchClearBtn();
+            applyPdfEndLineQcSearch('');
+        });
+    }
+
+    var endLineQcDateFrom = document.getElementById('pdf-endline-qc-date-from');
+    if (endLineQcDateFrom) {
+        endLineQcDateFrom.addEventListener('change', function () {
+            pdfEndLineQcTableData.dateFrom = endLineQcDateFrom.value;
+            updatePdfEndLineQcDateClearBtn();
+            applyPdfEndLineQcFilters();
+        });
+    }
+    var endLineQcDateTo = document.getElementById('pdf-endline-qc-date-to');
+    if (endLineQcDateTo) {
+        endLineQcDateTo.addEventListener('change', function () {
+            pdfEndLineQcTableData.dateTo = endLineQcDateTo.value;
+            updatePdfEndLineQcDateClearBtn();
+            applyPdfEndLineQcFilters();
+        });
+    }
+    var endLineQcDateClear = document.getElementById('pdf-endline-qc-date-clear');
+    if (endLineQcDateClear) {
+        endLineQcDateClear.addEventListener('click', function () {
+            pdfEndLineQcTableData.dateFrom = '';
+            pdfEndLineQcTableData.dateTo   = '';
+            var f = document.getElementById('pdf-endline-qc-date-from');
+            var t = document.getElementById('pdf-endline-qc-date-to');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            updatePdfEndLineQcDateClearBtn();
+            applyPdfEndLineQcFilters();
+        });
+    }
+
+    var endLineQcPageSize = document.getElementById('pdf-endline-qc-data-page-size');
+    if (endLineQcPageSize) {
+        endLineQcPageSize.addEventListener('change', function () {
+            pdfEndLineQcTableData.pageSize = parseInt(endLineQcPageSize.value, 10) || 25;
+            pdfEndLineQcTableData.page = 1;
+            renderPdfEndLineQcTable();
+        });
     }
 }
 
