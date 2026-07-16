@@ -24,6 +24,7 @@ var parseCreatedAt     = FMS.parseCreatedAt;
 var paginationRange    = FMS.paginationRange;
 var exportRowsToXlsx   = FMS.exportRowsToXlsx;
 var showBatchListKpiView = FMS.showBatchListKpiView;
+var currentSubmitter   = FMS.currentSubmitter;
 
 if (!jsonp || !exportRowsToXlsx || !showBatchListKpiView) {
     // app.js didn't expose window.FMS (e.g. an old cached app.js) — bail out
@@ -2333,9 +2334,25 @@ function renderOtLeaveTable(type) {
         return;
     }
 
+    // OT & Leave Analysis: flag the entire row red when any of the LAST SIX
+    // columns contains "YES" (case-insensitive, whitespace-tolerant).
+    var flagLastSixYes = type === 'ot-leave-analysis';
+    var flagStartCol = Math.max(0, state.headers.length - 6);
+
     slice.forEach(function (row, idx) {
         var tr = document.createElement('tr');
         tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        if (flagLastSixYes) {
+            var isFlagged = false;
+            for (var fc = flagStartCol; fc < state.headers.length; fc++) {
+                var fv = row[fc];
+                if (fv !== undefined && fv !== null && String(fv).trim().toUpperCase() === 'YES') {
+                    isFlagged = true;
+                    break;
+                }
+            }
+            if (isFlagged) tr.className += ' dt-tr-flag-red';
+        }
         var tdNum = document.createElement('td');
         tdNum.className = 'dt-td dt-td-num';
         tdNum.textContent = start + idx + 1;
@@ -2417,6 +2434,317 @@ function downloadOtLeaveExcel(type) {
 // ---------------------------------------------------------------------------
 // Wiring
 // ---------------------------------------------------------------------------
+// =============================================================================
+// PURCHASE — Domestic Purchase Order Form / Import Purchase Order Form
+// =============================================================================
+// Uses its own separate Google Spreadsheet + Web App (see Purchase.gs).
+// Follows the same KPI-card -> detail-view navigation pattern used by
+// OT & Leave / Warehouse, and the same submit pattern used by the DICE/FORMA
+// tracker forms in app.js.
+// =============================================================================
+var PURCHASE_URL = 'https://script.google.com/macros/s/AKfycbwjHUTJKOh3_P0mXD1Kk1dyeBJ_KuSRMjCjcm-YtJBDH9RMGUnkC_F4ELONFhkGefkI/exec';
+
+var purchaseDropdownsLoaded = false;
+
+function safeCurrentSubmitter() {
+    if (typeof currentSubmitter === 'function') return currentSubmitter();
+    try {
+        return sessionStorage.getItem('fms_user') || (document.getElementById('topbar-username') || {}).textContent || 'User';
+    } catch (e) { return 'User'; }
+}
+
+function postPurchase(payload) {
+    return fetch(PURCHASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    }).then(function (response) {
+        if (!response.ok) throw new Error('The form server returned HTTP ' + response.status + '.');
+        return response.json();
+    }).then(function (result) {
+        if (!result || !result.success) throw new Error((result && result.error) || 'The form server did not confirm the submission.');
+        return result;
+    });
+}
+
+function populatePurchaseSelect(select, values) {
+    if (!select) return;
+    var current = select.value;
+    var placeholder = select.querySelector('option[value=""]');
+    select.innerHTML = '';
+    if (placeholder) select.appendChild(placeholder);
+    (values || []).forEach(function (value) {
+        var option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+    });
+    if (current && values && values.indexOf(current) !== -1) select.value = current;
+}
+
+function fetchPurchaseDropdowns() {
+    if (purchaseDropdownsLoaded) return;
+    fetch(PURCHASE_URL + '?action=getPurchaseDropdowns&_=' + Date.now())
+        .then(function (response) { return response.json(); })
+        .then(function (result) {
+            if (!result || !result.success) throw new Error((result && result.error) || 'Failed to load dropdown data.');
+            purchaseDropdownsLoaded = true;
+            var seasons = result.data.seasons || [];
+            var categories = result.data.categories || [];
+            populatePurchaseSelect(document.getElementById('domestic-season'), seasons);
+            populatePurchaseSelect(document.getElementById('domestic-category'), categories);
+            populatePurchaseSelect(document.getElementById('import-season'), seasons);
+            populatePurchaseSelect(document.getElementById('import-category'), categories);
+        })
+        .catch(function (err) {
+            showToast('error', 'Load Error', err.message || 'Failed to load Purchase dropdown data.');
+        });
+}
+
+// ---------------------------------------------------------------------------
+// PO Number duplicate check — mirrors the Batch (Auto) "already exists"
+// pattern used by the DICE/FORMA form in app.js. While the user is typing a
+// PO Number, we ask the server whether that PO Number has already been
+// submitted for this form (Domestic or Import). If it has, every other
+// field (and the Submit button) is disabled so the entry cannot be created,
+// and an inline message is shown next to the PO Number field.
+// ---------------------------------------------------------------------------
+function purchasePoMsgEl(formType) {
+    return document.getElementById(formType + '-po-number-msg');
+}
+
+function setPurchasePoMsg(formType, text, variant) {
+    var msgEl = purchasePoMsgEl(formType);
+    if (!msgEl) return;
+    msgEl.textContent = text || '';
+    msgEl.className = 'batch-auto-msg' + (variant ? ' batch-auto-msg--' + variant : '');
+}
+
+function setPurchaseOtherFieldsDisabled(form, poInput, disabled) {
+    form.querySelectorAll('input, select').forEach(function (el) {
+        if (el === poInput) return;
+        el.disabled = disabled;
+    });
+    var submitBtn = form.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.disabled = disabled;
+}
+
+function checkPurchasePoNumber(formType, poNumber) {
+    var url = PURCHASE_URL + '?action=checkPoNumber&formType=' + encodeURIComponent(formType) +
+        '&poNumber=' + encodeURIComponent(poNumber) + '&_=' + Date.now();
+    return fetch(url).then(function (response) { return response.json(); });
+}
+
+// Checks the current PO Number value for `formType` ('domestic' or 'import'),
+// disables/enables the rest of the form accordingly, and resolves to `true`
+// if the PO Number is a duplicate (so callers can block submission).
+function validatePurchasePoNumber(formType) {
+    var form = document.getElementById(formType + '-po-form');
+    var poInput = document.getElementById(formType + '-po-number');
+    if (!form || !poInput) return Promise.resolve(false);
+
+    var poNumber = (poInput.value || '').trim();
+    if (!poNumber) {
+        setPurchasePoMsg(formType, '');
+        setPurchaseOtherFieldsDisabled(form, poInput, false);
+        return Promise.resolve(false);
+    }
+
+    setPurchasePoMsg(formType, 'Checking PO Number…', 'loading');
+
+    return checkPurchasePoNumber(formType, poNumber)
+        .then(function (result) {
+            // The user may have changed the PO Number again while this
+            // request was in flight — only act on the response if it still
+            // matches what's currently in the field.
+            if ((poInput.value || '').trim() !== poNumber) return null;
+
+            if (result && result.success && result.exists) {
+                setPurchaseOtherFieldsDisabled(form, poInput, true);
+                setPurchasePoMsg(formType, 'This PO Number already exists. Please enter a different PO Number.', 'exists');
+                return true;
+            }
+            setPurchaseOtherFieldsDisabled(form, poInput, false);
+            if (result && result.success) {
+                setPurchasePoMsg(formType, '');
+            } else {
+                setPurchasePoMsg(formType, (result && result.error) || 'Could not verify PO Number.', 'not-found');
+            }
+            return false;
+        })
+        .catch(function () {
+            // Network error: don't lock the user out, but let them know the
+            // check couldn't be completed. Server-side validation on submit
+            // still guards against a duplicate slipping through.
+            setPurchaseOtherFieldsDisabled(form, poInput, false);
+            setPurchasePoMsg(formType, 'Could not verify PO Number — check your connection.', 'not-found');
+            return false;
+        });
+}
+
+function debouncePurchasePoCheck(formType, delay) {
+    var timers = debouncePurchasePoCheck._timers || (debouncePurchasePoCheck._timers = {});
+    return function () {
+        clearTimeout(timers[formType]);
+        timers[formType] = setTimeout(function () { validatePurchasePoNumber(formType); }, delay || 500);
+    };
+}
+
+function clearPurchaseErrors(form) {
+    form.querySelectorAll('.form-field').forEach(function (field) { field.classList.remove('has-error'); });
+}
+
+function validatePurchaseForm(form) {
+    clearPurchaseErrors(form);
+    var firstInvalid = null;
+    form.querySelectorAll('[required]').forEach(function (input) {
+        if (!input.checkValidity()) {
+            var field = input.closest('.form-field');
+            if (field) field.classList.add('has-error');
+            if (!firstInvalid) firstInvalid = input;
+        }
+    });
+    if (firstInvalid) {
+        firstInvalid.focus();
+        showToast('error', 'Required fields', 'Please complete all required fields with valid values.');
+        return false;
+    }
+    return true;
+}
+
+function submitPurchaseForm(form, action) {
+    var formType = (action === 'submitImportPO') ? 'import' : 'domestic';
+    var poInput = document.getElementById(formType + '-po-number');
+    var button = form.querySelector('[type="submit"]');
+    var original = button.innerHTML;
+
+    // Always re-check the PO Number right before submitting — this catches
+    // a duplicate created by someone else since the last live check, as
+    // well as the case where the user never blurred/typed after focusing
+    // the field. Server-side (Purchase.gs) re-checks again regardless.
+    button.disabled = true;
+    validatePurchasePoNumber(formType).then(function (isDuplicate) {
+        if (isDuplicate) {
+            button.disabled = true; // stays locked along with the rest of the form
+            showToast('error', 'Duplicate PO Number', 'This PO Number already exists. Please enter a different PO Number.');
+            return;
+        }
+
+        if (!validatePurchaseForm(form)) {
+            button.disabled = false;
+            return;
+        }
+
+        button.innerHTML = '<span class="material-icons-round">hourglass_top</span>Submitting...';
+
+        var data = {};
+        form.querySelectorAll('input, select').forEach(function (field) { data[field.name] = (field.value || '').trim(); });
+        data.createdBy = safeCurrentSubmitter().trim();
+
+        postPurchase({ action: action, formData: data })
+            .then(function () {
+                form.reset();
+                clearPurchaseErrors(form);
+                setPurchaseOtherFieldsDisabled(form, poInput, false);
+                setPurchasePoMsg(formType, '');
+                showToast('success', 'Submitted', 'Purchase order details have been submitted successfully.');
+            })
+            .catch(function (err) {
+                showToast('error', 'Submission failed', err && err.message ? err.message : 'Please check your internet connection and try again.');
+            })
+            .then(function () {
+                button.disabled = false;
+                button.innerHTML = original;
+            });
+    });
+}
+
+function showPurchaseKpiView() {
+    var kpiView = document.getElementById('purchase-kpi-view');
+    if (kpiView) kpiView.style.display = '';
+    ['domestic-po-view', 'import-po-view'].forEach(function (id) {
+        var view = document.getElementById(id);
+        if (view) view.style.display = 'none';
+    });
+}
+
+function showPurchaseDetailView(viewId) {
+    var kpiView = document.getElementById('purchase-kpi-view');
+    if (kpiView) kpiView.style.display = 'none';
+    ['domestic-po-view', 'import-po-view'].forEach(function (id) {
+        var view = document.getElementById(id);
+        if (view) view.style.display = (id === viewId) ? '' : 'none';
+    });
+}
+
+function initPurchase() {
+    var domesticCard = document.getElementById('kpi-domestic-po');
+    if (domesticCard) {
+        domesticCard.addEventListener('click', function () { showPurchaseDetailView('domestic-po-view'); });
+        domesticCard.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showPurchaseDetailView('domestic-po-view'); }
+        });
+    }
+
+    var importCard = document.getElementById('kpi-import-po');
+    if (importCard) {
+        importCard.addEventListener('click', function () { showPurchaseDetailView('import-po-view'); });
+        importCard.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showPurchaseDetailView('import-po-view'); }
+        });
+    }
+
+    var backDomestic = document.getElementById('btn-back-domestic-po');
+    if (backDomestic) backDomestic.addEventListener('click', showPurchaseKpiView);
+
+    var backImport = document.getElementById('btn-back-import-po');
+    if (backImport) backImport.addEventListener('click', showPurchaseKpiView);
+
+    // Reset to the KPI landing view whenever the Purchase nav item is clicked.
+    document.querySelectorAll('.nav-item[data-page="purchase"]').forEach(function (item) {
+        item.addEventListener('click', showPurchaseKpiView);
+    });
+
+    var domesticForm = document.getElementById('domestic-po-form');
+    if (domesticForm) domesticForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        submitPurchaseForm(domesticForm, 'submitDomesticPO');
+    });
+
+    var importForm = document.getElementById('import-po-form');
+    if (importForm) importForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        submitPurchaseForm(importForm, 'submitImportPO');
+    });
+
+    // Load Season / Category dropdown values the first time either form opens.
+    if (domesticCard) domesticCard.addEventListener('click', fetchPurchaseDropdowns);
+    if (importCard) importCard.addEventListener('click', fetchPurchaseDropdowns);
+
+    // Live PO Number duplicate check: while typing (debounced) and on blur.
+    // If the PO Number already exists, the rest of the form is locked so a
+    // duplicate entry cannot be created (see validatePurchasePoNumber).
+    ['domestic', 'import'].forEach(function (formType) {
+        var form = document.getElementById(formType + '-po-form');
+        var poInput = document.getElementById(formType + '-po-number');
+        if (!form || !poInput) return;
+
+        var debouncedCheck = debouncePurchasePoCheck(formType, 500);
+        poInput.addEventListener('input', debouncedCheck);
+        poInput.addEventListener('blur', function () { validatePurchasePoNumber(formType); });
+
+        // Native form reset (the "Reset" button) clears field values but not
+        // any disabled state / message this feature has applied — clear it
+        // explicitly once the reset has taken effect.
+        form.addEventListener('reset', function () {
+            setTimeout(function () {
+                setPurchaseOtherFieldsDisabled(form, poInput, false);
+                setPurchasePoMsg(formType, '');
+            }, 0);
+        });
+    });
+}
+
 function initOtLeave() {
     ['ot-details', 'leave-details', 'ot-leave-analysis'].forEach(function (type) {
         var config  = getOtLeaveConfig(type);
@@ -3068,6 +3396,141 @@ function initWarehouseSection() {
     });
 }
 
+// =============================================================================
+// MACHINE — Die-Less Knife Cutting Machine Details
+// =============================================================================
+var DIE_LESS_URL = 'https://script.google.com/macros/s/AKfycbxhrqvWSNWT62dk_nfAavlXAXYVIwM2qX4KSaLnP-mWyt98dAYgD-NpOuUEFn2jHyI/exec';
+var dieLessConfigs = {
+    'machine-data': { action: 'getMachineData', label: 'Machine Data', sheet: 'Machine Data', file: 'Machine_Data' },
+    'monthly-machine-inactivity-data': { action: 'getMonthlyMachineInactivityData', label: 'Monthly Machine Inactivity (Data)', sheet: 'Monthly Machine Inactivity', file: 'Monthly_Machine_Inactivity_Data' }
+};
+var dieLessStates = {};
+Object.keys(dieLessConfigs).forEach(function (type) { dieLessStates[type] = { headers: [], allRows: [], filteredRows: [], sortCol: -1, sortAsc: true, page: 1, pageSize: 25, search: '', filters: {}, dateFrom: '', dateTo: '' }; });
+
+function dieLessFetch(type) {
+    var cfg = dieLessConfigs[type], state = dieLessStates[type], p = type + '-data', empty = document.getElementById(p + '-empty');
+    if (empty) { empty.querySelector('p').textContent = 'Loading data…'; empty.style.display = ''; }
+    document.getElementById(p + '-table').style.display = 'none'; document.getElementById(p + '-footer').style.display = 'none'; showSpinner('Fetching ' + cfg.label + '…');
+    fetch(DIE_LESS_URL + '?action=' + encodeURIComponent(cfg.action) + '&_=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('The Machine server returned HTTP ' + r.status + '.'); return r.json(); }).then(function (result) {
+        hideSpinner(); if (!result || !result.success || !Array.isArray(result.headers) || !Array.isArray(result.rows)) throw new Error((result && result.error) || 'Redeploy the DieLess.gs web app, then try again.');
+        state.headers = result.headers; state.allRows = result.rows; state.filteredRows = result.rows.slice(); state.sortCol = -1; state.sortAsc = true; state.page = 1; state.search = ''; state.filters = {}; state.dateFrom = ''; state.dateTo = '';
+        document.getElementById(p + '-search').value = ''; document.getElementById(type + '-date-from').value = ''; document.getElementById(type + '-date-to').value = '';
+        var label = document.getElementById(type + '-date-col-label'); if (label && state.headers[0]) label.textContent = state.headers[0]; dieLessBuildHeaders(type); dieLessRender(type);
+    }).catch(function (err) { hideSpinner(); if (empty) { empty.querySelector('p').textContent = 'Error: ' + err.message; empty.style.display = ''; } showToast('error', cfg.label + ' Data Error', err.message); });
+}
+
+function dieLessBuildHeaders(type) {
+    var state = dieLessStates[type], p = type + '-data', thead = document.getElementById(p + '-thead'); thead.innerHTML = '';
+    var filters = document.createElement('tr'); filters.className = 'dt-filter-row'; filters.innerHTML = '<th class="dt-filter-cell dt-filter-cell-num"></th>';
+    var headings = document.createElement('tr'), number = document.createElement('th'); number.className = 'dt-th dt-th-num'; number.textContent = '#'; headings.appendChild(number);
+    state.headers.forEach(function (header, i) {
+        var fc = document.createElement('th'), input = document.createElement('input'); fc.className = 'dt-filter-cell'; input.className = 'dt-col-filter'; input.placeholder = 'Filter…'; input.addEventListener('input', function () { state.filters[i] = input.value; dieLessApply(type); }); fc.appendChild(input); filters.appendChild(fc);
+        var th = document.createElement('th'); th.className = 'dt-th dt-th-sortable'; th.innerHTML = esc(header) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>'; th.addEventListener('click', function () { state.sortAsc = state.sortCol === i ? !state.sortAsc : true; state.sortCol = i; dieLessApply(type); }); headings.appendChild(th);
+    }); thead.appendChild(filters); thead.appendChild(headings);
+}
+
+function dieLessApply(type) {
+    var state = dieLessStates[type], from = state.dateFrom ? new Date(state.dateFrom + 'T00:00:00') : null, to = state.dateTo ? new Date(state.dateTo + 'T23:59:59') : null;
+    state.filteredRows = state.allRows.filter(function (row) {
+        if (state.search && !row.some(function (cell) { return String(cell).toLowerCase().indexOf(state.search) !== -1; })) return false;
+        if (!Object.keys(state.filters).every(function (key) { var f = String(state.filters[key] || '').trim().toLowerCase(); return !f || String(row[key] || '').toLowerCase().indexOf(f) !== -1; })) return false;
+        if (from || to) { var d = parseCreatedAt(row[0]); if (!d || (from && d < from) || (to && d > to)) return false; } return true;
+    });
+    if (state.sortCol >= 0) state.filteredRows.sort(function (a, b) { var av = String(a[state.sortCol] || ''), bv = String(b[state.sortCol] || ''), an = parseFloat(av), bn = parseFloat(bv), c = !isNaN(an) && !isNaN(bn) ? an - bn : av.localeCompare(bv); return state.sortAsc ? c : -c; }); state.page = 1; dieLessRender(type);
+}
+
+function dieLessRender(type) {
+    var state = dieLessStates[type], p = type + '-data', tbody = document.getElementById(p + '-tbody'), total = state.filteredRows.length, pages = Math.max(1, Math.ceil(total / state.pageSize)); state.page = Math.min(state.page, pages); var start = (state.page - 1) * state.pageSize, end = Math.min(start + state.pageSize, total);
+    tbody.innerHTML = ''; document.getElementById(p + '-table').style.display = ''; document.getElementById(p + '-empty').style.display = 'none'; document.getElementById(p + '-footer').style.display = total ? '' : 'none';
+    if (!total) { var emptyRow = document.createElement('tr'), emptyCell = document.createElement('td'); emptyCell.className = 'dt-td-empty-msg'; emptyCell.colSpan = state.headers.length + 1; emptyCell.textContent = state.allRows.length ? 'No records match the current filter.' : 'No data found in ' + dieLessConfigs[type].label + '.'; emptyRow.appendChild(emptyCell); tbody.appendChild(emptyRow); }
+    state.filteredRows.slice(start, end).forEach(function (row, ri) { var tr = document.createElement('tr'), n = document.createElement('td'); tr.className = (start + ri) % 2 ? 'dt-tr-odd' : 'dt-tr-even'; if (type === 'monthly-machine-inactivity-data') { var statusVisibleColumn = 5, statusDataIndex = statusVisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase(); if (statusVal === 'week off') tr.className += ' dt-tr-flag-green'; else if (statusVal === 'inactive') tr.className += ' dt-tr-flag-red'; } n.className = 'dt-td dt-td-num'; n.textContent = start + ri + 1; tr.appendChild(n); state.headers.forEach(function (_, ci) { var td = document.createElement('td'); td.className = 'dt-td'; td.textContent = row[ci] === undefined ? '' : row[ci]; tr.appendChild(td); }); tbody.appendChild(tr); });
+    document.getElementById(p + '-count-badge').textContent = total + ' record' + (total === 1 ? '' : 's'); document.getElementById(p + '-info').textContent = total ? 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total + ' entries' : 'Showing 0 entries';
+    var pager = document.getElementById(p + '-pagination'); pager.innerHTML = '';
+    function addPageButton(label, page, disabled, active, icon) { var b = document.createElement('button'); b.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : ''); b.disabled = disabled; b.innerHTML = icon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label; if (!disabled) b.addEventListener('click', function () { state.page = page; dieLessRender(type); var wrap = document.getElementById(p + '-table-wrap'); if (wrap) wrap.scrollTop = 0; }); pager.appendChild(b); }
+    addPageButton('first_page', 1, state.page <= 1, false, true); addPageButton('chevron_left', state.page - 1, state.page <= 1, false, true);
+    paginationRange(state.page, pages).forEach(function (item) { if (item === '…' || item === '...') { var ellipsis = document.createElement('span'); ellipsis.className = 'dt-page-ellipsis'; ellipsis.textContent = '…'; pager.appendChild(ellipsis); return; } addPageButton(item, item, false, item === state.page, false); });
+    addPageButton('chevron_right', state.page + 1, state.page >= pages, false, true); addPageButton('last_page', pages, state.page >= pages, false, true);
+}
+
+function initDieLessData() {
+    Object.keys(dieLessConfigs).forEach(function (type) { var p = type + '-data', state = dieLessStates[type];
+        document.getElementById('btn-refresh-' + p).addEventListener('click', function () { state.allRows = []; dieLessFetch(type); }); document.getElementById('btn-download-' + type + '-excel').addEventListener('click', function () { exportRowsToXlsx({ headers: state.headers, rows: state.filteredRows, sheetName: dieLessConfigs[type].sheet, filenamePrefix: dieLessConfigs[type].file }); });
+        var search = document.getElementById(p + '-search'); search.addEventListener('input', function () { state.search = search.value.trim().toLowerCase(); dieLessApply(type); }); document.getElementById(p + '-search-clear').addEventListener('click', function () { search.value = ''; state.search = ''; dieLessApply(type); });
+        ['from', 'to'].forEach(function (side) { var input = document.getElementById(type + '-date-' + side); input.addEventListener('change', function () { state[side === 'from' ? 'dateFrom' : 'dateTo'] = input.value; dieLessApply(type); }); }); document.getElementById(type + '-date-clear').addEventListener('click', function () { state.dateFrom = ''; state.dateTo = ''; document.getElementById(type + '-date-from').value = ''; document.getElementById(type + '-date-to').value = ''; dieLessApply(type); }); document.getElementById(p + '-page-size').addEventListener('change', function (e) { state.pageSize = parseInt(e.target.value, 10) || 25; state.page = 1; dieLessRender(type); });
+    });
+}
+
+function showMachineKpiView() {
+    var kpiView = document.getElementById('machine-kpi-view');
+    if (kpiView) kpiView.style.display = '';
+    var parentView = document.getElementById('die-less-knife-cutting-machine-details-view');
+    if (parentView) parentView.style.display = 'none';
+    ['machine-data', 'monthly-machine-inactivity-data'].forEach(function (type) {
+        var detailView = document.getElementById(type + '-view');
+        if (detailView) detailView.style.display = 'none';
+    });
+}
+
+function showDieLessKnifeCuttingMachineDetailsView() {
+    var kpiView = document.getElementById('machine-kpi-view');
+    var parentView = document.getElementById('die-less-knife-cutting-machine-details-view');
+    if (kpiView) kpiView.style.display = 'none';
+    if (parentView) parentView.style.display = '';
+    ['machine-data', 'monthly-machine-inactivity-data'].forEach(function (type) {
+        var detailView = document.getElementById(type + '-view');
+        if (detailView) detailView.style.display = 'none';
+    });
+}
+
+function showMachineDetailView(type) {
+    var kpiView = document.getElementById('machine-kpi-view');
+    var parentView = document.getElementById('die-less-knife-cutting-machine-details-view');
+    if (kpiView) kpiView.style.display = 'none';
+    if (parentView) parentView.style.display = 'none';
+    ['machine-data', 'monthly-machine-inactivity-data'].forEach(function (viewType) {
+        var detailView = document.getElementById(viewType + '-view');
+        if (detailView) detailView.style.display = viewType === type ? '' : 'none';
+    });
+    if (dieLessStates[type].allRows.length === 0) dieLessFetch(type);
+    else dieLessRender(type);
+}
+
+function initMachineSection() {
+    var parentCard = document.getElementById('kpi-die-less-knife-cutting-machine-details');
+    if (parentCard) {
+        parentCard.addEventListener('click', showDieLessKnifeCuttingMachineDetailsView);
+        parentCard.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showDieLessKnifeCuttingMachineDetailsView();
+            }
+        });
+    }
+
+    var parentBackButton = document.getElementById('btn-back-die-less-knife-cutting-machine-details');
+    if (parentBackButton) parentBackButton.addEventListener('click', showMachineKpiView);
+
+    ['machine-data', 'monthly-machine-inactivity-data'].forEach(function (type) {
+        var card = document.getElementById('kpi-' + type);
+        if (card) {
+            card.addEventListener('click', function () { showMachineDetailView(type); });
+            card.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    showMachineDetailView(type);
+                }
+            });
+        }
+
+        var backButton = document.getElementById('btn-back-' + type);
+        if (backButton) backButton.addEventListener('click', showDieLessKnifeCuttingMachineDetailsView);
+    });
+
+    document.querySelectorAll('.nav-item[data-page="machine"]').forEach(function (item) {
+        item.addEventListener('click', showMachineKpiView);
+    });
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initEndLineQc);
     document.addEventListener('DOMContentLoaded', initPostAql);
@@ -3075,6 +3538,9 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initShipment);
     document.addEventListener('DOMContentLoaded', initOtLeave);
     document.addEventListener('DOMContentLoaded', initWarehouseSection);
+    document.addEventListener('DOMContentLoaded', initMachineSection);
+    document.addEventListener('DOMContentLoaded', initDieLessData);
+    document.addEventListener('DOMContentLoaded', initPurchase);
 } else {
     initEndLineQc();
     initPostAql();
@@ -3082,6 +3548,9 @@ if (document.readyState === 'loading') {
     initShipment();
     initOtLeave();
     initWarehouseSection();
+    initMachineSection();
+    initDieLessData();
+    initPurchase();
 }
 
 })();
