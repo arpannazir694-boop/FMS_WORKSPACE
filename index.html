@@ -3042,6 +3042,21 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
+
+            <!-- Pre-Production Data KPI card -->
+            <div class="kpi-card kpi-card-live" id="kpi-preprod-data" role="button" tabindex="0" title="View Pre-Production Data">
+              <div class="kpi-card-icon kpi-card-live-icon">
+                <span class="material-icons-round">insights</span>
+                <span class="kpi-live-dot" title="Live data"></span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Pre-Production Data</div>
+                <div class="kpi-card-subtitle">View Pre-Production Data records</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3060,6 +3075,10 @@
               <span class="material-icons-round">redeem</span>
               Pre-Production for Store Details
             </div>
+            <span class="dt-live-badge" title="Auto-refreshes every 30 seconds">
+              <span class="dt-live-badge-dot"></span>
+              <span id="store-preproduction-data-last-updated">Live</span>
+            </span>
             <button class="btn-excel-icon" id="btn-download-store-preproduction-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
               <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
                 <rect width="32" height="32" rx="6" fill="#1D6F42"/>
@@ -3106,6 +3125,72 @@
 
         </div>
         <!-- /store-ai-data-view -->
+
+        <!-- ============================================================ -->
+        <!-- PRE-PRODUCTION DATA sub-view (inside Store)                   -->
+        <!-- ============================================================ -->
+        <div id="preprod-data-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-preprod-data" title="Back to Store">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Store
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">insights</span>
+              Pre-Production Data Details
+            </div>
+            <span class="dt-live-badge" title="Auto-refreshes every 30 seconds">
+              <span class="dt-live-badge-dot"></span>
+              <span id="preprod-data-last-updated">Live</span>
+            </span>
+            <button class="btn-excel-icon" id="btn-download-preprod-data-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-preprod-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="preprod-data-search" class="dt-search-input" placeholder="Search across all columns..." />
+                  <button class="dt-search-clear" id="preprod-data-search-clear" title="Clear search" style="display:none;"><span class="material-icons-round">close</span></button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="preprod-data-page-size" class="dt-page-size-select"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-count-badge" id="preprod-data-count-badge">- records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="preprod-data-table-wrap">
+              <div class="dt-empty-state" id="preprod-data-empty"><span class="material-icons-round">hourglass_empty</span><p>Loading data...</p></div>
+              <table class="dt-table" id="preprod-data-table" style="display:none;"><thead id="preprod-data-thead"></thead><tbody id="preprod-data-tbody"></tbody></table>
+            </div>
+            <div class="dt-footer" id="preprod-data-footer" style="display:none;"><div class="dt-info" id="preprod-data-info">Showing 0 of 0 entries</div><div class="dt-pagination" id="preprod-data-pagination"></div></div>
+          </div>
+
+        </div>
+        <!-- /preprod-data-view -->
 
       </div>
       <!-- /page-store -->
