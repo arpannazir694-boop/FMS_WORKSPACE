@@ -91,7 +91,7 @@ html, body {
 .login-card {
   display: flex;
   width: 100%;
-  max-width: 860px;
+  max-width: 940px;
   min-height: 560px;
   border-radius: var(--radius-card);
   overflow: hidden;
@@ -107,187 +107,25 @@ html, body {
 /* -------------------------------------------------------------------------- */
 /* LEFT — brand panel                                                         */
 /* -------------------------------------------------------------------------- */
+/* Width is derived from the card's actual height via aspect-ratio (matching
+   the artwork's own 835:941 proportions exactly), instead of a fixed pixel
+   width. That means the full artwork — wave included — always fits with
+   zero cropping and zero leftover gap, no matter how tall the card gets. */
 .brand-panel {
-  flex: 0 0 310px;
-  background: var(--blue);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 44px 28px 32px;
+  flex: 0 0 500px;
+  width: 500px;
+  align-self: stretch;
+  background: #071735;
   position: relative;
   overflow: hidden;
 }
 
-/* Decorative wave curves on the blue panel */
-.brand-panel::before {
-  content: '';
-  position: absolute;
-  width: 320px; height: 320px;
-  border-radius: 50%;
-  border: 40px solid rgba(255,255,255,.07);
-  top: -120px; right: -120px;
-  pointer-events: none;
-}
-
-.brand-panel::after {
-  content: '';
-  position: absolute;
-  width: 220px; height: 220px;
-  border-radius: 50%;
-  border: 30px solid rgba(255,255,255,.06);
-  bottom: -80px; left: -60px;
-  pointer-events: none;
-}
-
-/* Wavy SVG decoration */
-.brand-waves {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 180px;
-  opacity: .12;
-}
-
-/* Brand top section */
-.brand-top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  position: relative;
-  z-index: 2;
-}
-
-.brand-icon-box {
-  width: 80px; height: 80px;
-  background: rgba(255,255,255,.18);
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.25);
-}
-
-.brand-icon-inner {
-  width: 58px; height: 58px;
-  background: var(--white);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.brand-icon-inner .material-icons-round {
-  font-size: 30px;
-  color: var(--blue);
-}
-
-.brand-logo-img {
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
+.brand-panel-img {
   display: block;
-}
-
-.brand-name {
-  text-align: center;
-}
-
-.brand-name h1 {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--white);
-  letter-spacing: -.3px;
-}
-
-.brand-name p {
-  font-size: 12px;
-  color: rgba(255,255,255,.75);
-  margin-top: 3px;
-  font-weight: 400;
-}
-
-/* Divider with dot */
-.brand-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  justify-content: center;
-  margin-top: 4px;
-  position: relative;
-  z-index: 2;
-}
-
-.brand-divider::before,
-.brand-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgba(255,255,255,.22);
-  max-width: 60px;
-}
-
-.brand-divider-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,.5);
-}
-
-/* Tagline */
-.brand-tagline {
-  font-size: 13px;
-  color: rgba(255,255,255,.80);
-  text-align: center;
-  font-weight: 400;
-  letter-spacing: .2px;
-  position: relative;
-  z-index: 2;
-  line-height: 1.6;
-}
-
-.brand-ready-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.12);
-  border: 1px solid rgba(255,255,255,.22);
-  color: rgba(255,255,255,.88);
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: .2px;
-  position: relative;
-  z-index: 2;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
-}
-
-.ready-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 0 4px rgba(74,222,128,.18);
-  flex-shrink: 0;
-}
-
-/* Illustration */
-.brand-illus {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100%;
-  height: 130px;
-}
-
-.illus-svg {
-  width: 210px;
-  opacity: .85;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -295,6 +133,7 @@ html, body {
 /* -------------------------------------------------------------------------- */
 .form-panel {
   flex: 1;
+  min-width: 0;
   background: var(--white);
   display: flex;
   flex-direction: column;
@@ -825,16 +664,11 @@ html, body {
   .login-card { flex-direction: column; max-width: 440px; }
   .brand-panel {
     flex: 0 0 auto;
-    padding: 32px 24px 28px;
-    flex-direction: row;
-    align-items: center;
-    gap: 20px;
+    width: 100%;
+    aspect-ratio: 835 / 941;
+    align-self: auto;
     min-height: 0;
   }
-  .brand-illus  { display: none; }
-  .brand-divider, .brand-tagline { display: none; }
-  .brand-top    { flex-direction: row; gap: 14px; }
-  .brand-name h1 { font-size: 20px; }
   .form-panel   { padding: 28px 24px 24px; }
   .form-heading h2 { font-size: 21px; }
   html, body { overflow: auto; }
