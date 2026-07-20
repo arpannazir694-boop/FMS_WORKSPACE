@@ -321,3 +321,663 @@
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initStorePreProduction); else initStorePreProduction();
 })();
+
+// =============================================================================
+// Follow-Up Planned — Report by Planned Date (PDF section)
+// =============================================================================
+// This is a SEPARATE Google Spreadsheet from the main FMS workbook, so it
+// calls its own dedicated Web App (PlannedDate.gs), same pattern as the
+// Store section above.
+//
+// Flow:
+//   1. User opens PDF > Follow-Up Planned, picks a Planned Date, clicks
+//      "Generate Report".
+//   2. We call PlannedDate.gs's getPlannedDateReport action with that date.
+//   3. The backend scans the "PLANNED DATE" sheet and returns every record
+//      due, grouped into 11 independent stages — 1st/2nd/3rd Follow-up are
+//      each split into a separate "Floor Supervisor" stage and a separate
+//      "In-Line QC" stage (never merged), plus End-Line QC, Edge-Paint,
+//      Pre-AQL, Post AQL and Shipment.
+//   4. We render one table per stage that actually has records, and enable
+//      the "Download PDF" button, which uses jsPDF + jspdf-autotable to
+//      build a clean, table-based PDF client-side, styled with IBM Plex Sans.
+// =============================================================================
+(function () {
+    'use strict';
+
+    // After deploying PlannedDate.gs as a Web App, paste its /exec URL here.
+    var PLANNED_DATE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzGgpe9DPGQ50pCID9lNTaoqYqzdfRS1Vc3pLDItpPscRBxbFl4aKq8mMdygnLsQUr58Q/exec';
+
+    // Columns rendered in every stage table / PDF table, in order. Floor
+    // Supervisor and In-Line QC are always kept as two separate columns —
+    // never combined into one value. "Follow-Up Remarks" has no backing
+    // data field — it's intentionally left blank (wider than the other
+    // columns) so the printed/exported report has room for handwritten
+    // notes.
+    // pdfWidth values are proportioned to fill the full usable page width
+    // (A4 landscape, tight margins) at render time — see buildPdf(), which
+    // rescales them to the exact usable width so the table always spans
+    // edge-to-edge regardless of page size/margin tweaks.
+    var PD_COLUMNS = [
+        { key: 'unit',                label: 'Unit',             pdfWidth: 55 },
+        { key: 'batchNo',             label: 'Batch No.',        pdfWidth: 88 },
+        { key: 'brand',               label: 'Brand',            pdfWidth: 81 },
+        { key: 'sku',                 label: 'SKU',              pdfWidth: 81 },
+        { key: 'style',               label: 'Style',            pdfWidth: 81 },
+        { key: 'colour',              label: 'Colour',           pdfWidth: 62 },
+        { key: 'quantity',            label: 'Quantity',         pdfWidth: 62, halign: 'right' },
+        { key: 'etd',                 label: 'ETD',              pdfWidth: 73 },
+        { key: 'floorSupervisorName', label: 'Floor Supervisor', pdfWidth: 101 },
+        { key: 'inlineQcName',        label: 'In-Line QC',       pdfWidth: 101 },
+        { key: 'followUpRemarks',     label: 'Follow-Up Remarks', pdfWidth: 150 }
+    ];
+
+    var STAGE_ICONS = {
+        fu1_fs: 'looks_one', fu1_qc: 'looks_one',
+        fu2_fs: 'looks_two', fu2_qc: 'looks_two',
+        fu3_fs: 'looks_3',   fu3_qc: 'looks_3',
+        endline: 'checklist', edgepaint: 'format_paint',
+        preaql: 'fact_check', postaql: 'verified', shipment: 'local_shipping'
+    };
+
+    // Worksheet names for the Excel export — one worksheet per stage. Kept
+    // short (Excel caps sheet names at 31 characters and disallows
+    // : \ / ? * [ ]), while still matching the stage labels above.
+    var STAGE_SHEET_NAMES = {
+        fu1_fs:    '1st FU - Floor Supervisor',
+        fu1_qc:    '1st FU - In-Line QC',
+        fu2_fs:    '2nd FU - Floor Supervisor',
+        fu2_qc:    '2nd FU - In-Line QC',
+        fu3_fs:    '3rd FU - Floor Supervisor',
+        fu3_qc:    '3rd FU - In-Line QC',
+        endline:   'End-Line QC',
+        edgepaint: 'Edge-Paint',
+        preaql:    'Pre-AQL',
+        postaql:   'Post AQL',
+        shipment:  'Shipment'
+    };
+
+    // Plain black / white / grey palette only — no brand colours. Grey is
+    // used purely for structure (a faint header-row fill) so the PDF stays
+    // readable; everything else is pure black text/rules on white.
+    var PDF_COLORS = {
+        black:    [0, 0, 0],
+        text:     [0, 0, 0],
+        subtext:  [90, 90, 90],
+        border:   [0, 0, 0],
+        headFill: [235, 235, 235],
+        white:    [255, 255, 255]
+    };
+
+    var lastReport = null; // { date, stages } from the last successful fetch
+
+    // Units to always exclude from the report/PDF entirely, mirroring
+    // PD_EXCLUDED_UNITS/isExcludedUnit_ in PlannedDate.gs. Comparison is
+    // case-insensitive and ignores surrounding whitespace. This acts as a
+    // client-side safety net so the exclusion applies immediately even if
+    // the Apps Script web app hasn't been redeployed with the same logic yet.
+    var PD_EXCLUDED_UNITS = ['14-B', '114'];
+    function isExcludedUnit_(unitValue) {
+        var normalized = String(unitValue == null ? '' : unitValue).trim().toUpperCase();
+        return PD_EXCLUDED_UNITS.some(function (u) { return String(u).trim().toUpperCase() === normalized; });
+    }
+
+    // Sorts records by their "Unit" field (e.g. "14-B", "P-32", "S-18",
+    // "S-37") using a natural/numeric-aware comparison — "S-9" sorts before
+    // "S-18" rather than after it, unlike a plain string sort. This mirrors
+    // compareByUnit_/naturalCompare_ in PlannedDate.gs and acts as a
+    // client-side safety net: it applies unit-wise sorting immediately even
+    // if the Apps Script web app hasn't been redeployed with the same logic
+    // yet, and guarantees the on-screen table and the PDF always match.
+    function compareRecordsByUnit_(a, b) {
+        return naturalCompareUnit_(String((a && a.unit) || ''), String((b && b.unit) || ''));
+    }
+
+    function naturalCompareUnit_(a, b) {
+        var re = /(\d+)|(\D+)/g;
+        var aParts = String(a).match(re) || [];
+        var bParts = String(b).match(re) || [];
+        var len = Math.max(aParts.length, bParts.length);
+
+        for (var i = 0; i < len; i++) {
+            var ap = aParts[i], bp = bParts[i];
+            if (ap === undefined) return -1;
+            if (bp === undefined) return 1;
+
+            var aIsNum = /^\d+$/.test(ap);
+            var bIsNum = /^\d+$/.test(bp);
+
+            if (aIsNum && bIsNum) {
+                var diff = parseInt(ap, 10) - parseInt(bp, 10);
+                if (diff !== 0) return diff;
+            } else {
+                var cmp = ap.toLowerCase().localeCompare(bp.toLowerCase());
+                if (cmp !== 0) return cmp;
+            }
+        }
+        return 0;
+    }
+
+    function el(id) { return document.getElementById(id); }
+    function helpers() { return window.FMS || {}; }
+    function escapeHtml(value) { return helpers().esc ? helpers().esc(value) : String(value == null ? '' : value); }
+    function toast(type, title, msg) { if (helpers().showToast) helpers().showToast(type, title, msg); }
+
+    function formatDateForTitle(dateStr) {
+        var parts = String(dateStr || '').split('-');
+        if (parts.length !== 3) return dateStr || '';
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var m = parseInt(parts[1], 10) - 1;
+        return parts[2] + '-' + (months[m] || parts[1]) + '-' + parts[0];
+    }
+
+    // -----------------------------------------------------------------
+    // View reset / fetch / render
+    // -----------------------------------------------------------------
+    function resetView() {
+        lastReport = null;
+        var dateInput = el('followup-planned-date-input');
+        if (dateInput) dateInput.value = '';
+        var results = el('followup-planned-results');
+        if (results) results.innerHTML = '';
+        var emptyState = el('followup-planned-empty-state');
+        if (emptyState) {
+            emptyState.style.display = '';
+            emptyState.innerHTML = '<span class="material-icons-round">event_repeat</span>' +
+                '<p>Select a Planned Date and click "Generate Report" to see 1st/2nd/3rd Follow-up ' +
+                '(Floor Supervisor and In-Line QC shown separately), End-Line QC, Edge-Paint, Pre-AQL, ' +
+                'Post AQL and Shipment records due on that date.</p>';
+        }
+        var badge = el('followup-planned-summary-badge');
+        if (badge) badge.style.display = 'none';
+        var pdfBtn = el('btn-download-followup-planned-pdf');
+        if (pdfBtn) pdfBtn.disabled = true;
+        var excelBtn = el('btn-download-followup-planned-report-excel');
+        if (excelBtn) excelBtn.disabled = true;
+    }
+
+    function fetchReport(dateStr) {
+        var emptyState = el('followup-planned-empty-state');
+        var results = el('followup-planned-results');
+        var pdfBtn = el('btn-download-followup-planned-pdf');
+        var excelBtn = el('btn-download-followup-planned-report-excel');
+        var badge = el('followup-planned-summary-badge');
+
+        if (results) results.innerHTML = '';
+        if (badge) badge.style.display = 'none';
+        if (pdfBtn) pdfBtn.disabled = true;
+        if (excelBtn) excelBtn.disabled = true;
+        if (emptyState) {
+            emptyState.style.display = '';
+            emptyState.innerHTML = '<span class="material-icons-round">hourglass_empty</span><p>Loading data…</p>';
+        }
+        if (helpers().showSpinner) helpers().showSpinner('Fetching Follow-Up Planned data...');
+
+        fetch(PLANNED_DATE_WEB_APP_URL + '?action=getPlannedDateReport&date=' + encodeURIComponent(dateStr) + '&_=' + Date.now())
+            .then(function (response) {
+                if (!response.ok) throw new Error('The Planned Date server returned HTTP ' + response.status + '.');
+                return response.json();
+            })
+            .then(function (result) {
+                if (!result || !result.success || !Array.isArray(result.stages)) {
+                    throw new Error((result && result.error) || 'Redeploy PlannedDate.gs as a web app, then try again.');
+                }
+                result.stages.forEach(function (stage) {
+                    if (!Array.isArray(stage.records)) return;
+                    stage.records = stage.records.filter(function (record) { return !isExcludedUnit_(record && record.unit); });
+                    stage.records.sort(compareRecordsByUnit_);
+                    stage.count = stage.records.length;
+                });
+                lastReport = { date: result.date || dateStr, stages: result.stages };
+                renderReport();
+            })
+            .catch(function (error) {
+                lastReport = null;
+                if (emptyState) {
+                    emptyState.style.display = '';
+                    emptyState.innerHTML = '<span class="material-icons-round">error_outline</span><p>Error: ' + escapeHtml(error.message) + '</p>';
+                }
+                toast('error', 'Data Error', error.message);
+            })
+            .finally(function () { if (helpers().hideSpinner) helpers().hideSpinner(); });
+    }
+
+    function renderReport() {
+        var emptyState = el('followup-planned-empty-state');
+        var results = el('followup-planned-results');
+        var pdfBtn = el('btn-download-followup-planned-pdf');
+        var excelBtn = el('btn-download-followup-planned-report-excel');
+        var badge = el('followup-planned-summary-badge');
+        if (!results || !lastReport) return;
+
+        var stagesWithData = lastReport.stages.filter(function (s) { return s.count > 0; });
+        var totalRecords = stagesWithData.reduce(function (sum, s) { return sum + s.count; }, 0);
+
+        if (badge) {
+            badge.style.display = '';
+            badge.textContent = totalRecords + ' record' + (totalRecords === 1 ? '' : 's') + ' · ' +
+                stagesWithData.length + ' stage' + (stagesWithData.length === 1 ? '' : 's');
+        }
+
+        if (stagesWithData.length === 0) {
+            results.innerHTML = '';
+            if (emptyState) {
+                emptyState.style.display = '';
+                emptyState.innerHTML = '<span class="material-icons-round">event_busy</span>' +
+                    '<p>No Follow-Up, QC, Edge-Paint, AQL or Shipment records are planned for ' +
+                    escapeHtml(formatDateForTitle(lastReport.date)) + '.</p>';
+            }
+            if (pdfBtn) pdfBtn.disabled = true;
+            if (excelBtn) excelBtn.disabled = true;
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (pdfBtn) pdfBtn.disabled = false;
+        if (excelBtn) excelBtn.disabled = false;
+
+        var html = '';
+        stagesWithData.forEach(function (stage) {
+            html += '<div class="page-card data-table-card fup-stage-section">';
+            html += '  <div class="fup-stage-header">';
+            html += '    <span class="material-icons-round">' + (STAGE_ICONS[stage.key] || 'event') + '</span>';
+            html += '    <span class="fup-stage-title">' + escapeHtml(stage.label) + '</span>';
+            html += '    <span class="fup-stage-count">' + stage.count + ' record' + (stage.count === 1 ? '' : 's') + '</span>';
+            html += '  </div>';
+            html += '  <div class="fup-stage-table-wrap">';
+            html += '    <table class="dt-table">';
+            html += '      <thead><tr>';
+            PD_COLUMNS.forEach(function (col) { html += '<th class="dt-th">' + escapeHtml(col.label) + '</th>'; });
+            html += '      </tr></thead>';
+            html += '      <tbody>';
+            stage.records.forEach(function (record, i) {
+                html += '<tr class="' + (i % 2 ? 'dt-tr-odd' : 'dt-tr-even') + '">';
+                PD_COLUMNS.forEach(function (col) { html += '<td class="dt-td">' + escapeHtml(record[col.key]) + '</td>'; });
+                html += '</tr>';
+            });
+            html += '      </tbody>';
+            html += '    </table>';
+            html += '  </div>';
+            html += '</div>';
+        });
+        html += '<div class="fup-summary-note">Report generated for Planned Date: ' +
+            escapeHtml(formatDateForTitle(lastReport.date)) + '. Stages with no records for this date are omitted. ' +
+            'Floor Supervisor and In-Line QC are always listed as separate stages/columns, never combined.</div>';
+
+        results.innerHTML = html;
+    }
+
+    // Formats a Date as dd/MM/yyyy HH:mm:ss (24-hour, zero-padded), used for
+    // the "Generated:" label in the PDF so it's locale-independent — unlike
+    // Date#toLocaleString(), which varies by the browser's locale settings.
+    function formatPdfTimestamp_(date) {
+        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+        return pad2(date.getDate()) + '/' + pad2(date.getMonth() + 1) + '/' + date.getFullYear() +
+            ' ' + pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
+    }
+
+    // -----------------------------------------------------------------
+    // PDF generation (client-side, via jsPDF + jspdf-autotable)
+    // Plain, professional, black-and-white, table-based layout: a simple
+    // text header with a single rule, one bordered table per stage with a
+    // plain section heading, and a page-numbered footer (company name,
+    // report label, and page number) repeated on every page. No colour, no
+    // fills, no rounded shapes — just clean typography and rules.
+    // IBM Plex Sans (embedded, see pdf-fonts.js) is used for every piece of text,
+    // and every table spans the full usable page width.
+    // -----------------------------------------------------------------
+    function buildPdf() {
+        if (!lastReport) return;
+        var stagesWithData = lastReport.stages.filter(function (s) { return s.count > 0; });
+        if (stagesWithData.length === 0) { toast('error', 'Nothing to Export', 'No records found for the selected Planned Date.'); return; }
+
+        var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+        if (!jsPDFCtor) { toast('error', 'PDF Error', 'PDF library failed to load. Check your internet connection and try again.'); return; }
+
+        var doc = new jsPDFCtor({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+        var fontFamily = 'helvetica'; // fallback if IBM Plex Sans fails to register
+        if (typeof registerPdfFonts_ === 'function') {
+            try { registerPdfFonts_(doc); fontFamily = 'IBMPlexSans'; }
+            catch (e) {
+                fontFamily = 'helvetica';
+                // Surfaced so a broken/missing pdf-fonts.js is visible in the
+                // console instead of silently downgrading every PDF to Helvetica.
+                console.warn('registerPdfFonts_ failed — falling back to Helvetica for this PDF:', e);
+            }
+        } else {
+            console.warn('registerPdfFonts_ is not defined (pdf-fonts.js missing or not loaded) — falling back to Helvetica for this PDF.');
+        }
+        doc.setFont(fontFamily, 'normal');
+
+        var pageWidth  = doc.internal.pageSize.getWidth();
+        var pageHeight = doc.internal.pageSize.getHeight();
+        var marginX = 14;
+        var usableWidth = pageWidth - marginX * 2;
+        var headerTop = 26;
+        var headerRuleY = 56;
+        var contentTop = headerRuleY + 20;
+        var footerRuleY = pageHeight - 30;
+        var totalRecords = stagesWithData.reduce(function (sum, s) { return sum + s.count; }, 0);
+        var reportDateLabel = formatDateForTitle(lastReport.date);
+        var generatedLabel = formatPdfTimestamp_(new Date());
+
+        // Rescale the configured column widths so the table always spans
+        // the exact full usable width, regardless of page/margin size.
+        var configuredWidth = PD_COLUMNS.reduce(function (sum, col) { return sum + col.pdfWidth; }, 0);
+        var widthScale = usableWidth / configuredWidth;
+
+        // ---- Repeats the plain text title + rules on every page ----
+        function drawPageFrame() {
+            doc.setTextColor(PDF_COLORS.black[0], PDF_COLORS.black[1], PDF_COLORS.black[2]);
+
+            doc.setFont(fontFamily, 'bold');
+            doc.setFontSize(15);
+            doc.text('PRODUCTION FOLLOW-UP REPORT', marginX, headerTop);
+
+            doc.setFont(fontFamily, 'normal');
+            doc.setFontSize(9);
+            doc.text(
+                'Planned Date: ' + reportDateLabel + '   |   ' + totalRecords + ' record' +
+                (totalRecords === 1 ? '' : 's') + ' across ' + stagesWithData.length + ' stage' +
+                (stagesWithData.length === 1 ? '' : 's'),
+                marginX, headerTop + 16
+            );
+
+            doc.setFontSize(8.5);
+            doc.setTextColor(PDF_COLORS.subtext[0], PDF_COLORS.subtext[1], PDF_COLORS.subtext[2]);
+            doc.text('Generated: ' + generatedLabel, pageWidth - marginX, headerTop, { align: 'right' });
+
+            doc.setFont(fontFamily, 'bold');
+            doc.setTextColor(PDF_COLORS.black[0], PDF_COLORS.black[1], PDF_COLORS.black[2]);
+            doc.text('Trio Trend Exports Pvt. Ltd.', pageWidth - marginX, headerTop + 16, { align: 'right' });
+
+            // Single rule under the header
+            doc.setDrawColor(PDF_COLORS.black[0], PDF_COLORS.black[1], PDF_COLORS.black[2]);
+            doc.setLineWidth(1);
+            doc.line(marginX, headerRuleY, pageWidth - marginX, headerRuleY);
+
+            // Footer rule
+            doc.setLineWidth(0.6);
+            doc.line(marginX, footerRuleY, pageWidth - marginX, footerRuleY);
+            doc.setFont(fontFamily, 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(PDF_COLORS.subtext[0], PDF_COLORS.subtext[1], PDF_COLORS.subtext[2]);
+            doc.text('Follow-Up Planned Report · Planned Date ' + reportDateLabel, marginX, footerRuleY + 14);
+        }
+
+        function drawPageNumbers() {
+            var pageCount = doc.internal.getNumberOfPages();
+            for (var p = 1; p <= pageCount; p++) {
+                doc.setPage(p);
+                doc.setFont(fontFamily, 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(PDF_COLORS.subtext[0], PDF_COLORS.subtext[1], PDF_COLORS.subtext[2]);
+                doc.text('Page ' + p + ' of ' + pageCount, pageWidth - marginX, footerRuleY + 14, { align: 'right' });
+            }
+        }
+
+        drawPageFrame();
+        var cursorY = contentTop;
+
+        var tableHead = [PD_COLUMNS.map(function (col) { return col.label; })];
+        var columnStyles = {};
+        PD_COLUMNS.forEach(function (col, i) {
+            columnStyles[i] = { cellWidth: col.pdfWidth * widthScale, halign: col.halign || 'left' };
+        });
+
+        stagesWithData.forEach(function (stage, idx) {
+            // Start a fresh page if a new stage heading wouldn't fit.
+            if (cursorY > pageHeight - 130) {
+                doc.addPage();
+                drawPageFrame();
+                cursorY = contentTop;
+            } else if (idx > 0) {
+                cursorY += 14;
+            }
+
+            // Plain section heading: bold label + record count, thin rule below.
+            doc.setFont(fontFamily, 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(PDF_COLORS.black[0], PDF_COLORS.black[1], PDF_COLORS.black[2]);
+            doc.text(stage.label, marginX, cursorY + 10);
+
+            doc.setFont(fontFamily, 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(PDF_COLORS.subtext[0], PDF_COLORS.subtext[1], PDF_COLORS.subtext[2]);
+            doc.text(stage.count + ' record' + (stage.count === 1 ? '' : 's'), pageWidth - marginX, cursorY + 10, { align: 'right' });
+
+            cursorY += 16;
+            doc.setDrawColor(PDF_COLORS.black[0], PDF_COLORS.black[1], PDF_COLORS.black[2]);
+            doc.setLineWidth(0.75);
+            doc.line(marginX, cursorY, pageWidth - marginX, cursorY);
+            cursorY += 8;
+
+            var body = stage.records.map(function (record) {
+                return PD_COLUMNS.map(function (col) { return record[col.key] == null ? '' : String(record[col.key]); });
+            });
+
+            // Row indices (within this stage's table body) where a new Unit
+            // group begins — i.e. its Unit differs from the previous
+            // record's Unit. Records arrive pre-sorted by Unit, so this
+            // just finds the boundaries; used below to draw a thick rule
+            // above each new group so Unit-wise groups are clearly
+            // separated in the PDF, matching the on-screen sort order.
+            var groupStartRows = {};
+            stage.records.forEach(function (record, i) {
+                if (i === 0) return; // first row never needs a divider above it
+                var prevUnit = String(stage.records[i - 1].unit == null ? '' : stage.records[i - 1].unit).trim();
+                var curUnit  = String(record.unit == null ? '' : record.unit).trim();
+                if (curUnit !== prevUnit) groupStartRows[i] = true;
+            });
+
+            doc.autoTable({
+                head: tableHead,
+                body: body,
+                startY: cursorY,
+                margin: { left: marginX, right: marginX, top: contentTop, bottom: 44 },
+                tableWidth: usableWidth,
+                styles: {
+                    font: fontFamily,
+                    fontSize: 8.5,
+                    cellPadding: 5,
+                    overflow: 'linebreak',
+                    lineColor: PDF_COLORS.border,
+                    lineWidth: 0.5,
+                    textColor: PDF_COLORS.text,
+                    fillColor: PDF_COLORS.white
+                },
+                headStyles: {
+                    font: fontFamily,
+                    fontStyle: 'bold',
+                    fillColor: PDF_COLORS.headFill,
+                    textColor: PDF_COLORS.black,
+                    fontSize: 8.7,
+                    halign: 'left',
+                    lineColor: PDF_COLORS.border,
+                    lineWidth: 0.5
+                },
+                columnStyles: columnStyles,
+                theme: 'grid',
+                didParseCell: function (data) {
+                    // Thick, bold top rule on the first row of every new
+                    // Unit group (except the very first row of the table).
+                    if (data.section === 'body' && groupStartRows[data.row.index]) {
+                        data.cell.styles.lineWidth = { top: 1.75, right: 0.5, bottom: 0.5, left: 0.5 };
+                        data.cell.styles.lineColor = PDF_COLORS.black;
+                    }
+                },
+                didDrawPage: function () {
+                    // A new page was started mid-table by autoTable itself —
+                    // redraw the header/footer frame on it too.
+                    drawPageFrame();
+                }
+            });
+
+            cursorY = doc.lastAutoTable.finalY + 18;
+        });
+
+        drawPageNumbers();
+
+        var filenameDate = String(lastReport.date || '').replace(/-/g, '');
+        doc.save('Follow_Up_Planned_Report_' + filenameDate + '.pdf');
+    }
+
+    // -----------------------------------------------------------------
+    // Excel generation (client-side, via ExcelJS — shared with the rest
+    // of the app through window.FMS.loadExcelJs so the library is only
+    // ever fetched once). Unlike the PDF, which stacks every stage into
+    // one continuous document, the workbook gets ONE WORKSHEET PER STAGE
+    // so each part of the report (1st Follow-up — Floor Supervisor,
+    // 1st Follow-up — In-Line QC, End-Line QC, etc.) lives in its own
+    // sheet rather than being merged into a single flat table.
+    // -----------------------------------------------------------------
+    function buildExcel() {
+        if (!lastReport) return;
+        var stagesWithData = lastReport.stages.filter(function (s) { return s.count > 0; });
+        if (stagesWithData.length === 0) { toast('error', 'Nothing to Export', 'No records found for the selected Planned Date.'); return; }
+
+        var loadExcelJs = helpers().loadExcelJs;
+        if (typeof loadExcelJs !== 'function') {
+            toast('error', 'Excel Error', 'Excel export library helper is unavailable.');
+            return;
+        }
+
+        if (helpers().showSpinner) helpers().showSpinner('Building Excel workbook...');
+
+        var border      = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+        var groupBorder = { style: 'medium', color: { argb: 'FF000000' } };
+        var reportDateLabel = formatDateForTitle(lastReport.date);
+
+        loadExcelJs().then(function (ExcelJS) {
+            var workbook = new ExcelJS.Workbook();
+            var usedNames = {};
+
+            stagesWithData.forEach(function (stage) {
+                // Keep worksheet names unique, <=31 chars, and free of the
+                // characters Excel disallows in sheet names.
+                var baseName = (STAGE_SHEET_NAMES[stage.key] || stage.label).replace(/[:\\/?*\[\]]/g, '-').substring(0, 31);
+                var sheetName = baseName;
+                var suffix = 2;
+                while (usedNames[sheetName]) {
+                    sheetName = baseName.substring(0, 28) + ' (' + suffix + ')';
+                    suffix++;
+                }
+                usedNames[sheetName] = true;
+
+                var worksheet = workbook.addWorksheet(sheetName);
+                var colCount = PD_COLUMNS.length + 1; // + row-number column
+
+                worksheet.columns = [{ width: 6 }].concat(PD_COLUMNS.map(function (col) {
+                    return { width: col.key === 'followUpRemarks' ? 34 : 18 };
+                }));
+
+                // Title + subtitle rows, merged across every column.
+                var titleRow = worksheet.addRow(['Follow-Up Planned — ' + stage.label]);
+                worksheet.mergeCells(titleRow.number, 1, titleRow.number, colCount);
+                titleRow.height = 22;
+                titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF000000' } };
+                titleRow.getCell(1).alignment = { vertical: 'middle' };
+
+                var subRow = worksheet.addRow([
+                    'Planned Date: ' + reportDateLabel + '   |   ' + stage.count + ' record' + (stage.count === 1 ? '' : 's')
+                ]);
+                worksheet.mergeCells(subRow.number, 1, subRow.number, colCount);
+                subRow.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF5A5A5A' } };
+
+                worksheet.addRow([]); // spacer row
+
+                var headerRow = worksheet.addRow(['#'].concat(PD_COLUMNS.map(function (col) { return col.label; })));
+                headerRow.height = 22;
+                headerRow.eachCell(function (cell) {
+                    cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    cell.border    = { top: border, left: border, bottom: border, right: border };
+                });
+
+                // Data rows — a thicker top rule marks the first row of
+                // every new Unit group, matching the PDF's grouping.
+                stage.records.forEach(function (record, idx) {
+                    var prevUnit = idx > 0 ? String(stage.records[idx - 1].unit == null ? '' : stage.records[idx - 1].unit).trim() : null;
+                    var curUnit  = String(record.unit == null ? '' : record.unit).trim();
+                    var isNewGroup = idx > 0 && curUnit !== prevUnit;
+
+                    var rowValues = [idx + 1].concat(PD_COLUMNS.map(function (col) {
+                        return record[col.key] == null ? '' : String(record[col.key]);
+                    }));
+                    var excelRow = worksheet.addRow(rowValues);
+                    excelRow.height = 18;
+                    excelRow.eachCell(function (cell, colNumber) {
+                        var isRowNumCol = colNumber === 1;
+                        cell.alignment = { vertical: 'middle', wrapText: true, horizontal: isRowNumCol ? 'center' : undefined };
+                        cell.border = { top: isNewGroup ? groupBorder : border, left: border, bottom: border, right: border };
+                        if (isRowNumCol) {
+                            cell.font = { color: { argb: 'FF94A3B8' } };
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                        } else {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } };
+                        }
+                    });
+                });
+
+                worksheet.views = [{ state: 'frozen', ySplit: 4 }];
+            });
+
+            return workbook.xlsx.writeBuffer();
+        }).then(function (buffer) {
+            if (helpers().hideSpinner) helpers().hideSpinner();
+            var filenameDate = String(lastReport.date || '').replace(/-/g, '');
+            var filename = 'Follow_Up_Planned_Report_' + filenameDate + '.xlsx';
+            var blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var url    = URL.createObjectURL(blob);
+            var anchor = document.createElement('a');
+            anchor.href = url; anchor.download = filename; anchor.style.display = 'none';
+            document.body.appendChild(anchor); anchor.click();
+            setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(anchor); }, 300);
+            toast('success', 'Download Started', stagesWithData.length + ' sheet' + (stagesWithData.length === 1 ? '' : 's') + ' exported to ' + filename);
+        }).catch(function (err) {
+            if (helpers().hideSpinner) helpers().hideSpinner();
+            toast('error', 'Excel Download Failed', err && err.message ? err.message : 'Could not create the Excel file.');
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // Wiring
+    // -----------------------------------------------------------------
+    function initPlannedDateReport() {
+        var kpiCard = el('kpi-pdf-followup-planned');
+        if (kpiCard) {
+            kpiCard.addEventListener('click', resetView);
+            kpiCard.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') resetView(); });
+        }
+
+        var genBtn = el('btn-generate-followup-planned-report');
+        if (genBtn) {
+            genBtn.addEventListener('click', function () {
+                var dateInput = el('followup-planned-date-input');
+                var val = dateInput && dateInput.value;
+                if (!val) { toast('error', 'Select a Date', 'Please select a Planned Date first.'); return; }
+                fetchReport(val);
+            });
+        }
+
+        var clearBtn = el('btn-clear-followup-planned-report');
+        if (clearBtn) clearBtn.addEventListener('click', resetView);
+
+        var dateInput = el('followup-planned-date-input');
+        if (dateInput) {
+            dateInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && dateInput.value) fetchReport(dateInput.value);
+            });
+        }
+
+        var pdfBtn = el('btn-download-followup-planned-pdf');
+        if (pdfBtn) pdfBtn.addEventListener('click', buildPdf);
+
+        var excelBtn = el('btn-download-followup-planned-report-excel');
+        if (excelBtn) excelBtn.addEventListener('click', buildExcel);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPlannedDateReport); else initPlannedDateReport();
+})();
