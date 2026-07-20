@@ -122,6 +122,38 @@ var shipmentTableData = {
 function getShipmentDateColIndex() { return 0; }
 
 // ---------------------------------------------------------------------------
+// Follow-Up Planned — table state
+// ---------------------------------------------------------------------------
+// NOTE: This sub-view is currently a front-end shell only — it is not wired
+// up to a Google Sheet yet. Once a sheet/range is chosen, add a backend
+// function (e.g. getFollowUpPlannedData(), following the same pattern as
+// getEndLineQcDetailsData() / getShipmentDetailsData() in Code.gs, returning
+// { success, headers, rows }) and flip FOLLOWUP_PLANNED_DATA_CONNECTED to
+// true below — no other changes are required, this view already has full
+// search / column-filter / date-range filter / sort / pagination / Excel
+// export wiring identical to the other Production Data sub-views.
+var FOLLOWUP_PLANNED_DATA_CONNECTED = false;
+
+var followUpPlannedTableData = {
+    headers:       [],
+    allRows:       [],
+    filteredRows:  [],
+    sortCol:       -1,
+    sortAsc:       true,
+    page:          1,
+    pageSize:      25,
+    searchQuery:   '',
+    columnFilters: {},
+    dateFrom:      '',
+    dateTo:        ''
+};
+
+// Same convention as the other Production Data subviews: the Google Sheet
+// table starts at column B, so the first column (the date column used for
+// the date-range filter) is index 0.
+function getFollowUpPlannedDateColIndex() { return 0; }
+
+// ---------------------------------------------------------------------------
 // View switching
 // ---------------------------------------------------------------------------
 var OTHER_BATCH_LIST_VIEW_IDS = [
@@ -134,7 +166,8 @@ var OTHER_BATCH_LIST_VIEW_IDS = [
     'batch-list-endline-qc-view',
     'batch-list-post-aql-view',
     'batch-list-warehouse-fms-view',
-    'batch-list-shipment-view'
+    'batch-list-shipment-view',
+    'batch-list-followup-planned-view'
 ];
 
 function showBatchListEndLineQcView() {
@@ -215,6 +248,25 @@ function backToBatchListKpiViewFromShipment() {
     var view = document.getElementById('batch-list-shipment-view');
     if (view) view.style.display = 'none';
     showBatchListKpiView();
+}
+
+function showBatchListFollowUpPlannedView() {
+    // NOTE: This view was converted from a generic data table into the
+    // "Follow-Up Planned — Report by Planned Date" PDF report generator.
+    // Its fetch/render logic now lives in web.js (PlannedDate.gs backend),
+    // wired to its own click handler on #kpi-pdf-followup-planned — so this
+    // function only needs to handle showing/hiding the view shell.
+    showPdfKpiView();
+    var kpiView = document.getElementById('pdf-kpi-view');
+    if (kpiView) kpiView.style.display = 'none';
+    var view = document.getElementById('batch-list-followup-planned-view');
+    if (view) view.style.display = '';
+}
+
+function backToBatchListKpiViewFromFollowUpPlanned() {
+    var view = document.getElementById('batch-list-followup-planned-view');
+    if (view) view.style.display = 'none';
+    showPdfKpiView();
 }
 
 // ---------------------------------------------------------------------------
@@ -1622,6 +1674,378 @@ function downloadShipmentExcel() {
 }
 
 // ---------------------------------------------------------------------------
+// Follow-Up Planned — fetch + render
+// ---------------------------------------------------------------------------
+function updateFollowUpPlannedDateClearBtn() {
+    var btn = document.getElementById('followup-planned-date-clear');
+    if (btn) btn.style.display = (followUpPlannedTableData.dateFrom || followUpPlannedTableData.dateTo) ? '' : 'none';
+}
+
+function updateFollowUpPlannedSearchClearBtn() {
+    var s = document.getElementById('followup-planned-data-search');
+    var b = document.getElementById('followup-planned-data-search-clear');
+    if (s && b) b.style.display = s.value ? '' : 'none';
+}
+
+function fetchFollowUpPlannedDetailsAndRender() {
+    var emptyEl  = document.getElementById('followup-planned-data-empty');
+    var tableEl  = document.getElementById('followup-planned-data-table');
+    var footerEl = document.getElementById('followup-planned-data-footer');
+
+    // Shell mode: no backend is wired up yet, so just show a friendly
+    // "not connected" empty state instead of attempting a network call.
+    // See the FOLLOWUP_PLANNED_DATA_CONNECTED note near the top of this
+    // file for how to connect a real Google Sheet to this view.
+    if (!FOLLOWUP_PLANNED_DATA_CONNECTED) {
+        if (emptyEl) {
+            emptyEl.innerHTML =
+                '<span class="material-icons-round">event_repeat</span>' +
+                '<p>This view isn\'t connected to a data source yet.</p>';
+            emptyEl.style.display = '';
+        }
+        if (tableEl)  tableEl.style.display  = 'none';
+        if (footerEl) footerEl.style.display = 'none';
+        return;
+    }
+
+    if (emptyEl)  { emptyEl.querySelector('p').textContent = 'Loading data...'; emptyEl.style.display = ''; }
+    if (tableEl)  tableEl.style.display  = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+    showSpinner('Fetching Follow-Up Planned data...');
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function (r) { hideSpinner(); onFollowUpPlannedDataLoaded(r); })
+            .withFailureHandler(function (e) { hideSpinner(); onFollowUpPlannedDataError(e.message || 'Failed to load data.'); })
+            .getFollowUpPlannedData();
+        return;
+    }
+    jsonp({ action: 'getFollowUpPlannedData' }, function (err, result) {
+        hideSpinner();
+        if (err) { onFollowUpPlannedDataError(err.message); return; }
+        onFollowUpPlannedDataLoaded(result);
+    });
+}
+
+function onFollowUpPlannedDataLoaded(result) {
+    if (!result || !result.success) {
+        onFollowUpPlannedDataError((result && result.error) || 'Failed to load data.');
+        return;
+    }
+    followUpPlannedTableData.headers       = result.headers || [];
+    followUpPlannedTableData.allRows       = result.rows    || [];
+    followUpPlannedTableData.filteredRows  = followUpPlannedTableData.allRows.slice();
+    followUpPlannedTableData.sortCol       = -1;
+    followUpPlannedTableData.sortAsc       = true;
+    followUpPlannedTableData.page          = 1;
+    followUpPlannedTableData.searchQuery   = '';
+    followUpPlannedTableData.columnFilters = {};
+    followUpPlannedTableData.dateFrom      = '';
+    followUpPlannedTableData.dateTo        = '';
+
+    var s = document.getElementById('followup-planned-data-search');
+    if (s) s.value = '';
+    updateFollowUpPlannedSearchClearBtn();
+
+    var df = document.getElementById('followup-planned-date-from');
+    var dt = document.getElementById('followup-planned-date-to');
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+    updateFollowUpPlannedDateClearBtn();
+
+    var labelEl = document.getElementById('followup-planned-date-col-label');
+    var dateCol = getFollowUpPlannedDateColIndex();
+    if (labelEl && followUpPlannedTableData.headers[dateCol]) {
+        labelEl.textContent = followUpPlannedTableData.headers[dateCol];
+    }
+
+    buildFollowUpPlannedTableHeaders();
+    renderFollowUpPlannedTable();
+}
+
+function onFollowUpPlannedDataError(msg) {
+    var emptyEl = document.getElementById('followup-planned-data-empty');
+    if (emptyEl) { emptyEl.querySelector('p').textContent = 'Error: ' + msg; emptyEl.style.display = ''; }
+    var tableEl = document.getElementById('followup-planned-data-table');
+    if (tableEl) tableEl.style.display = 'none';
+    var footerEl = document.getElementById('followup-planned-data-footer');
+    if (footerEl) footerEl.style.display = 'none';
+    showToast('error', 'Data Error', msg);
+}
+
+function buildFollowUpPlannedTableHeaders() {
+    var thead = document.getElementById('followup-planned-data-thead');
+    if (!thead) return;
+    thead.innerHTML = '';
+
+    var trHead = document.createElement('tr');
+    var thNum  = document.createElement('th');
+    thNum.className = 'dt-th dt-th-num';
+    thNum.textContent = '#';
+    trHead.appendChild(thNum);
+    followUpPlannedTableData.headers.forEach(function (h, i) {
+        var th = document.createElement('th');
+        th.className = 'dt-th dt-th-sortable';
+        th.setAttribute('data-followup-planned-col', i);
+        th.innerHTML = esc(h) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
+        th.addEventListener('click', function () { onFollowUpPlannedSortColumn(i); });
+        trHead.appendChild(th);
+    });
+
+    var trFilter = document.createElement('tr');
+    trFilter.className = 'dt-filter-row';
+    var thFilterNum = document.createElement('th');
+    thFilterNum.className = 'dt-filter-cell dt-filter-cell-num';
+    thFilterNum.innerHTML = '<span class="material-icons-round" style="font-size:12px;opacity:.45;color:#94a3b8;">filter_list</span>';
+    trFilter.appendChild(thFilterNum);
+
+    followUpPlannedTableData.headers.forEach(function (h, i) {
+        var th    = document.createElement('th');
+        th.className = 'dt-filter-cell';
+        var wrap  = document.createElement('div');
+        wrap.className = 'dt-col-filter-wrap';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dt-col-filter';
+        input.placeholder = 'Filter...';
+        input.value = followUpPlannedTableData.columnFilters[i] || '';
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'dt-col-filter-clear';
+        clearBtn.title = 'Clear filter';
+        clearBtn.innerHTML = '<span class="material-icons-round">close</span>';
+        clearBtn.style.display = input.value ? '' : 'none';
+        input.addEventListener('input', function () {
+            followUpPlannedTableData.columnFilters[i] = input.value;
+            clearBtn.style.display = input.value ? '' : 'none';
+            applyFollowUpPlannedFilters();
+        });
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            input.value = '';
+            followUpPlannedTableData.columnFilters[i] = '';
+            clearBtn.style.display = 'none';
+            applyFollowUpPlannedFilters();
+            input.focus();
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
+        th.appendChild(wrap);
+        trFilter.appendChild(th);
+    });
+
+    thead.appendChild(trFilter);
+    thead.appendChild(trHead);
+}
+
+function onFollowUpPlannedSortColumn(colIndex) {
+    if (followUpPlannedTableData.sortCol === colIndex) {
+        followUpPlannedTableData.sortAsc = !followUpPlannedTableData.sortAsc;
+    } else {
+        followUpPlannedTableData.sortCol = colIndex;
+        followUpPlannedTableData.sortAsc = true;
+    }
+    updateFollowUpPlannedSortIcons();
+    applyFollowUpPlannedFilters();
+}
+
+function updateFollowUpPlannedSortIcons() {
+    document.querySelectorAll('[data-followup-planned-col]').forEach(function (th) {
+        var idx  = parseInt(th.getAttribute('data-followup-planned-col'), 10);
+        var icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (idx === followUpPlannedTableData.sortCol) {
+            icon.textContent = followUpPlannedTableData.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            th.classList.add('dt-th-sorted');
+        } else {
+            icon.textContent = 'unfold_more';
+            th.classList.remove('dt-th-sorted');
+        }
+    });
+}
+
+function applyFollowUpPlannedFilters() {
+    var query      = followUpPlannedTableData.searchQuery;
+    var colFilters = followUpPlannedTableData.columnFilters;
+    var dateColIdx = getFollowUpPlannedDateColIndex();
+    var dateFrom = followUpPlannedTableData.dateFrom ? new Date(followUpPlannedTableData.dateFrom + 'T00:00:00') : null;
+    var dateTo = followUpPlannedTableData.dateTo ? new Date(followUpPlannedTableData.dateTo + 'T23:59:59') : null;
+    var anyDateFilter = dateFrom || dateTo;
+
+    followUpPlannedTableData.filteredRows = followUpPlannedTableData.allRows.filter(function (row) {
+        if (query) {
+            var rowMatch = row.some(function (cell) {
+                return String(cell).toLowerCase().indexOf(query) !== -1;
+            });
+            if (!rowMatch) return false;
+        }
+        var colKeys = Object.keys(colFilters);
+        for (var k = 0; k < colKeys.length; k++) {
+            var ci = parseInt(colKeys[k], 10);
+            var f  = (colFilters[colKeys[k]] || '').trim().toLowerCase();
+            if (!f) continue;
+            var cellVal = String(row[ci] !== undefined ? row[ci] : '').toLowerCase();
+            if (cellVal.indexOf(f) === -1) return false;
+        }
+        if (anyDateFilter && dateColIdx >= 0 && dateColIdx < row.length) {
+            var parsed = parseCreatedAt(row[dateColIdx]);
+            if (!parsed) return false;
+            if (dateFrom && parsed < dateFrom) return false;
+            if (dateTo   && parsed > dateTo)   return false;
+        }
+        return true;
+    });
+
+    if (followUpPlannedTableData.sortCol >= 0) {
+        var sc = followUpPlannedTableData.sortCol;
+        followUpPlannedTableData.filteredRows.sort(function (a, b) {
+            var av = (a[sc] || '').toString().toLowerCase();
+            var bv = (b[sc] || '').toString().toLowerCase();
+            var numA = parseFloat(av), numB = parseFloat(bv);
+            var isNum = !isNaN(numA) && !isNaN(numB);
+            var cmp = isNum ? (numA - numB) : av.localeCompare(bv);
+            return followUpPlannedTableData.sortAsc ? cmp : -cmp;
+        });
+    }
+
+    followUpPlannedTableData.page = 1;
+    renderFollowUpPlannedTable();
+}
+
+function applyFollowUpPlannedSearch(query) {
+    followUpPlannedTableData.searchQuery = (query || '').trim().toLowerCase();
+    applyFollowUpPlannedFilters();
+}
+
+function renderFollowUpPlannedTable() {
+    var tbody      = document.getElementById('followup-planned-data-tbody');
+    var tableEl    = document.getElementById('followup-planned-data-table');
+    var emptyEl    = document.getElementById('followup-planned-data-empty');
+    var footerEl   = document.getElementById('followup-planned-data-footer');
+    var countBadge = document.getElementById('followup-planned-data-count-badge');
+    if (!tbody) return;
+
+    var total      = followUpPlannedTableData.filteredRows.length;
+    var pageSize   = followUpPlannedTableData.pageSize;
+    var page       = followUpPlannedTableData.page;
+    var totalPages = Math.ceil(total / pageSize) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    followUpPlannedTableData.page = page;
+
+    var start = (page - 1) * pageSize;
+    var end   = Math.min(start + pageSize, total);
+    var slice = followUpPlannedTableData.filteredRows.slice(start, end);
+
+    if (countBadge) countBadge.textContent = total + ' record' + (total !== 1 ? 's' : '');
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (tableEl)  tableEl.style.display  = '';
+    if (footerEl) footerEl.style.display = total > 0 ? '' : 'none';
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.className = 'dt-td-empty-msg';
+        tdEmpty.setAttribute('colspan', followUpPlannedTableData.headers.length + 1);
+        var hasFilter = Object.keys(followUpPlannedTableData.columnFilters).some(function (k) {
+            return (followUpPlannedTableData.columnFilters[k] || '').trim() !== '';
+        });
+        var hasDate = followUpPlannedTableData.dateFrom || followUpPlannedTableData.dateTo;
+        tdEmpty.innerHTML =
+            '<span class="material-icons-round" style="vertical-align:middle;margin-right:6px;font-size:18px;color:#64748b;">search_off</span>' +
+            (followUpPlannedTableData.searchQuery || hasFilter || hasDate
+                ? 'No records match the current filter.'
+                : (followUpPlannedTableData.allRows.length === 0 ? 'No data found in Follow-Up Planned.' : 'No records found.'));
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        var infoEl2 = document.getElementById('followup-planned-data-info');
+        if (infoEl2) infoEl2.textContent = 'Showing 0 entries';
+        return;
+    }
+
+    slice.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.className = (start + idx) % 2 === 0 ? 'dt-tr-even' : 'dt-tr-odd';
+        var tdNum = document.createElement('td');
+        tdNum.className = 'dt-td dt-td-num';
+        tdNum.textContent = start + idx + 1;
+        tr.appendChild(tdNum);
+        followUpPlannedTableData.headers.forEach(function (header, ci) {
+            var td = document.createElement('td');
+            td.className = 'dt-td';
+            var cellVal = String(row[ci] !== undefined && row[ci] !== null ? row[ci] : '');
+            if (followUpPlannedTableData.searchQuery && cellVal.toLowerCase().indexOf(followUpPlannedTableData.searchQuery) !== -1) {
+                td.innerHTML = esc(cellVal).replace(
+                    new RegExp(escapeRegex(esc(followUpPlannedTableData.searchQuery)), 'gi'),
+                    '<mark class="dt-highlight">$&</mark>'
+                );
+            } else {
+                td.textContent = cellVal;
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    var infoEl = document.getElementById('followup-planned-data-info');
+    if (infoEl) {
+        infoEl.textContent = 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total +
+            (followUpPlannedTableData.allRows.length !== total ? ' (filtered from ' + followUpPlannedTableData.allRows.length + ' total)' : '') +
+            ' entries';
+    }
+    buildFollowUpPlannedPagination(page, totalPages);
+}
+
+function buildFollowUpPlannedPagination(current, total) {
+    var container = document.getElementById('followup-planned-data-pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    function mkBtn(label, page, disabled, active, isIcon) {
+        var btn = document.createElement('button');
+        btn.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : '');
+        btn.innerHTML = isIcon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label;
+        btn.disabled  = disabled;
+        if (!disabled) {
+            btn.addEventListener('click', function () {
+                followUpPlannedTableData.page = page;
+                renderFollowUpPlannedTable();
+                var wrap = document.getElementById('followup-planned-data-table-wrap');
+                if (wrap) wrap.scrollTop = 0;
+            });
+        }
+        return btn;
+    }
+    container.appendChild(mkBtn('first_page',   1,           current <= 1,      false, true));
+    container.appendChild(mkBtn('chevron_left', current - 1, current <= 1,      false, true));
+    paginationRange(current, total).forEach(function (item) {
+        if (item === '...' || item === '\u2026') {
+            var el = document.createElement('span');
+            el.className = 'dt-page-ellipsis';
+            el.textContent = '...';
+            container.appendChild(el);
+        } else {
+            container.appendChild(mkBtn(item, item, false, item === current, false));
+        }
+    });
+    container.appendChild(mkBtn('chevron_right', current + 1, current >= total, false, true));
+    container.appendChild(mkBtn('last_page',     total,       current >= total, false, true));
+}
+
+function downloadFollowUpPlannedExcel() {
+    var headers = followUpPlannedTableData.headers;
+    var rows    = followUpPlannedTableData.filteredRows;
+    if (!headers.length || !rows.length) {
+        showToast('error', 'Nothing to Export', 'This view isn\'t connected to a data source yet.');
+        return;
+    }
+    exportRowsToXlsx({
+        headers: headers,
+        rows: rows,
+        sheetName: 'Follow-Up Planned',
+        filenamePrefix: 'Follow_Up_Planned'
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Wiring
 // ---------------------------------------------------------------------------
 function initEndLineQc() {
@@ -1701,6 +2125,84 @@ function initEndLineQc() {
             endLineQcTableData.pageSize = parseInt(pageSize.value, 10) || 25;
             endLineQcTableData.page = 1;
             renderEndLineQcTable();
+        });
+    }
+}
+
+function initFollowUpPlanned() {
+    // The detail panel was originally created under Production Data. Move it
+    // into the PDF page so its card and content stay in the same section.
+    var detailView = document.getElementById('batch-list-followup-planned-view');
+    var pdfPage = document.getElementById('page-pdf');
+    if (detailView && pdfPage && detailView.parentNode !== pdfPage) {
+        pdfPage.appendChild(detailView);
+    }
+
+    var excelBtn = document.getElementById('btn-download-followup-planned-excel');
+    if (excelBtn) excelBtn.addEventListener('click', function () { downloadFollowUpPlannedExcel(); });
+
+    var refreshBtn = document.getElementById('btn-refresh-followup-planned-data');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+            followUpPlannedTableData.allRows       = [];
+            followUpPlannedTableData.columnFilters = {};
+            fetchFollowUpPlannedDetailsAndRender();
+        });
+    }
+
+    var searchEl = document.getElementById('followup-planned-data-search');
+    if (searchEl) {
+        searchEl.addEventListener('input', function () {
+            updateFollowUpPlannedSearchClearBtn();
+            applyFollowUpPlannedSearch(searchEl.value);
+        });
+    }
+    var clearSearch = document.getElementById('followup-planned-data-search-clear');
+    if (clearSearch) {
+        clearSearch.addEventListener('click', function () {
+            var s = document.getElementById('followup-planned-data-search');
+            if (s) { s.value = ''; s.focus(); }
+            updateFollowUpPlannedSearchClearBtn();
+            applyFollowUpPlannedSearch('');
+        });
+    }
+
+    var dateFrom = document.getElementById('followup-planned-date-from');
+    if (dateFrom) {
+        dateFrom.addEventListener('change', function () {
+            followUpPlannedTableData.dateFrom = dateFrom.value;
+            updateFollowUpPlannedDateClearBtn();
+            applyFollowUpPlannedFilters();
+        });
+    }
+    var dateTo = document.getElementById('followup-planned-date-to');
+    if (dateTo) {
+        dateTo.addEventListener('change', function () {
+            followUpPlannedTableData.dateTo = dateTo.value;
+            updateFollowUpPlannedDateClearBtn();
+            applyFollowUpPlannedFilters();
+        });
+    }
+    var dateClear = document.getElementById('followup-planned-date-clear');
+    if (dateClear) {
+        dateClear.addEventListener('click', function () {
+            followUpPlannedTableData.dateFrom = '';
+            followUpPlannedTableData.dateTo   = '';
+            var f = document.getElementById('followup-planned-date-from');
+            var t = document.getElementById('followup-planned-date-to');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            updateFollowUpPlannedDateClearBtn();
+            applyFollowUpPlannedFilters();
+        });
+    }
+
+    var pageSize = document.getElementById('followup-planned-data-page-size');
+    if (pageSize) {
+        pageSize.addEventListener('change', function () {
+            followUpPlannedTableData.pageSize = parseInt(pageSize.value, 10) || 25;
+            followUpPlannedTableData.page = 1;
+            renderFollowUpPlannedTable();
         });
     }
 }
@@ -3400,10 +3902,26 @@ function initWarehouseSection() {
 // MACHINE — Die-Less Knife Cutting Machine Details
 // =============================================================================
 var DIE_LESS_URL = 'https://script.google.com/macros/s/AKfycbxhrqvWSNWT62dk_nfAavlXAXYVIwM2qX4KSaLnP-mWyt98dAYgD-NpOuUEFn2jHyI/exec';
+var MACHINE_URL  = 'https://script.google.com/macros/s/AKfycbxaXHeja3YObxODcH_vaYVnRwcg0XruJSFgbnPzq52-ZZ66DMfT3tW2VKlgLcTyNFTN/exec';
 var dieLessConfigs = {
-    'machine-data': { action: 'getMachineData', label: 'Machine Data', sheet: 'Machine Data', file: 'Machine_Data' },
-    'monthly-machine-inactivity-data': { action: 'getMonthlyMachineInactivityData', label: 'Monthly Machine Inactivity (Data)', sheet: 'Monthly Machine Inactivity', file: 'Monthly_Machine_Inactivity_Data' }
+    'machine-data': { url: DIE_LESS_URL, script: 'DieLess.gs', action: 'getMachineData', label: 'Machine Data', sheet: 'Machine Data', file: 'Machine_Data' },
+    'monthly-machine-inactivity-data': { url: DIE_LESS_URL, script: 'DieLess.gs', action: 'getMonthlyMachineInactivityData', label: 'Monthly Machine Inactivity (Data)', sheet: 'Monthly Machine Inactivity', file: 'Monthly_Machine_Inactivity_Data' },
+    'machine-repairing-details': { url: MACHINE_URL, script: 'Machine.gs', action: 'getMachineRepairingDetails', label: 'Machine & Repairing Details', sheet: 'Machine Details', file: 'Machine_And_Repairing_Details' }
 };
+// Conditional row coloring for "Machine & Repairing Details" is driven by
+// the column labelled SERVICE TYPE. Resolve it from the returned header so
+// the coloring stays correct even if the sheet columns are rearranged.
+var MACHINE_SERVICE_TYPE_HEADER = 'service type';
+var MACHINE_ROW_COLOR_MAP = {
+    'major problem':   'dt-tr-machine-major-problem',
+    'minor problem':   'dt-tr-machine-minor-problem',
+    'as usual repair': 'dt-tr-machine-usual-repair',
+    'audit purpose':   'dt-tr-machine-audit-purpose',
+    'breakdown':        'dt-tr-machine-breakdown',
+    'install':          'dt-tr-machine-install',
+    'preventive':       'dt-tr-machine-preventive'
+};
+
 var dieLessStates = {};
 Object.keys(dieLessConfigs).forEach(function (type) { dieLessStates[type] = { headers: [], allRows: [], filteredRows: [], sortCol: -1, sortAsc: true, page: 1, pageSize: 25, search: '', filters: {}, dateFrom: '', dateTo: '' }; });
 
@@ -3411,8 +3929,8 @@ function dieLessFetch(type) {
     var cfg = dieLessConfigs[type], state = dieLessStates[type], p = type + '-data', empty = document.getElementById(p + '-empty');
     if (empty) { empty.querySelector('p').textContent = 'Loading data…'; empty.style.display = ''; }
     document.getElementById(p + '-table').style.display = 'none'; document.getElementById(p + '-footer').style.display = 'none'; showSpinner('Fetching ' + cfg.label + '…');
-    fetch(DIE_LESS_URL + '?action=' + encodeURIComponent(cfg.action) + '&_=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('The Machine server returned HTTP ' + r.status + '.'); return r.json(); }).then(function (result) {
-        hideSpinner(); if (!result || !result.success || !Array.isArray(result.headers) || !Array.isArray(result.rows)) throw new Error((result && result.error) || 'Redeploy the DieLess.gs web app, then try again.');
+    fetch(cfg.url + '?action=' + encodeURIComponent(cfg.action) + '&_=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('The Machine server returned HTTP ' + r.status + '.'); return r.json(); }).then(function (result) {
+        hideSpinner(); if (!result || !result.success || !Array.isArray(result.headers) || !Array.isArray(result.rows)) throw new Error((result && result.error) || 'Redeploy the ' + (cfg.script || 'Apps Script') + ' web app, then try again.');
         state.headers = result.headers; state.allRows = result.rows; state.filteredRows = result.rows.slice(); state.sortCol = -1; state.sortAsc = true; state.page = 1; state.search = ''; state.filters = {}; state.dateFrom = ''; state.dateTo = '';
         document.getElementById(p + '-search').value = ''; document.getElementById(type + '-date-from').value = ''; document.getElementById(type + '-date-to').value = '';
         var label = document.getElementById(type + '-date-col-label'); if (label && state.headers[0]) label.textContent = state.headers[0]; dieLessBuildHeaders(type); dieLessRender(type);
@@ -3443,7 +3961,8 @@ function dieLessRender(type) {
     var state = dieLessStates[type], p = type + '-data', tbody = document.getElementById(p + '-tbody'), total = state.filteredRows.length, pages = Math.max(1, Math.ceil(total / state.pageSize)); state.page = Math.min(state.page, pages); var start = (state.page - 1) * state.pageSize, end = Math.min(start + state.pageSize, total);
     tbody.innerHTML = ''; document.getElementById(p + '-table').style.display = ''; document.getElementById(p + '-empty').style.display = 'none'; document.getElementById(p + '-footer').style.display = total ? '' : 'none';
     if (!total) { var emptyRow = document.createElement('tr'), emptyCell = document.createElement('td'); emptyCell.className = 'dt-td-empty-msg'; emptyCell.colSpan = state.headers.length + 1; emptyCell.textContent = state.allRows.length ? 'No records match the current filter.' : 'No data found in ' + dieLessConfigs[type].label + '.'; emptyRow.appendChild(emptyCell); tbody.appendChild(emptyRow); }
-    state.filteredRows.slice(start, end).forEach(function (row, ri) { var tr = document.createElement('tr'), n = document.createElement('td'); tr.className = (start + ri) % 2 ? 'dt-tr-odd' : 'dt-tr-even'; if (type === 'monthly-machine-inactivity-data') { var statusVisibleColumn = 5, statusDataIndex = statusVisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase(); if (statusVal === 'week off') tr.className += ' dt-tr-flag-green'; else if (statusVal === 'inactive') tr.className += ' dt-tr-flag-red'; } n.className = 'dt-td dt-td-num'; n.textContent = start + ri + 1; tr.appendChild(n); state.headers.forEach(function (_, ci) { var td = document.createElement('td'); td.className = 'dt-td'; td.textContent = row[ci] === undefined ? '' : row[ci]; tr.appendChild(td); }); tbody.appendChild(tr); });
+    var machineServiceTypeIndex = type === 'machine-repairing-details' ? state.headers.map(function (header) { return String(header || '').trim().toLowerCase(); }).indexOf(MACHINE_SERVICE_TYPE_HEADER) : -1;
+    state.filteredRows.slice(start, end).forEach(function (row, ri) { var tr = document.createElement('tr'), n = document.createElement('td'); tr.className = (start + ri) % 2 ? 'dt-tr-odd' : 'dt-tr-even'; if (type === 'monthly-machine-inactivity-data') { var statusVisibleColumn = 5, statusDataIndex = statusVisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase(); if (statusVal === 'week off') tr.className += ' dt-tr-flag-green'; else if (statusVal === 'inactive') tr.className += ' dt-tr-flag-red'; } else if (type === 'machine-repairing-details' && machineServiceTypeIndex >= 0) { var machineStatusVal = String(row[machineServiceTypeIndex] === undefined || row[machineServiceTypeIndex] === null ? '' : row[machineServiceTypeIndex]).trim().toLowerCase(); var machineColorClass = MACHINE_ROW_COLOR_MAP[machineStatusVal]; if (machineColorClass) tr.className += ' ' + machineColorClass; } n.className = 'dt-td dt-td-num'; n.textContent = start + ri + 1; tr.appendChild(n); state.headers.forEach(function (_, ci) { var td = document.createElement('td'); td.className = 'dt-td'; td.textContent = row[ci] === undefined ? '' : row[ci]; tr.appendChild(td); }); tbody.appendChild(tr); });
     document.getElementById(p + '-count-badge').textContent = total + ' record' + (total === 1 ? '' : 's'); document.getElementById(p + '-info').textContent = total ? 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total + ' entries' : 'Showing 0 entries';
     var pager = document.getElementById(p + '-pagination'); pager.innerHTML = '';
     function addPageButton(label, page, disabled, active, icon) { var b = document.createElement('button'); b.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : ''); b.disabled = disabled; b.innerHTML = icon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label; if (!disabled) b.addEventListener('click', function () { state.page = page; dieLessRender(type); var wrap = document.getElementById(p + '-table-wrap'); if (wrap) wrap.scrollTop = 0; }); pager.appendChild(b); }
@@ -3469,6 +3988,8 @@ function showMachineKpiView() {
         var detailView = document.getElementById(type + '-view');
         if (detailView) detailView.style.display = 'none';
     });
+    var repairView = document.getElementById('machine-repairing-details-view');
+    if (repairView) repairView.style.display = 'none';
 }
 
 function showDieLessKnifeCuttingMachineDetailsView() {
@@ -3480,6 +4001,8 @@ function showDieLessKnifeCuttingMachineDetailsView() {
         var detailView = document.getElementById(type + '-view');
         if (detailView) detailView.style.display = 'none';
     });
+    var repairView = document.getElementById('machine-repairing-details-view');
+    if (repairView) repairView.style.display = 'none';
 }
 
 function showMachineDetailView(type) {
@@ -3491,6 +4014,24 @@ function showMachineDetailView(type) {
         var detailView = document.getElementById(viewType + '-view');
         if (detailView) detailView.style.display = viewType === type ? '' : 'none';
     });
+    var repairView = document.getElementById('machine-repairing-details-view');
+    if (repairView) repairView.style.display = 'none';
+    if (dieLessStates[type].allRows.length === 0) dieLessFetch(type);
+    else dieLessRender(type);
+}
+
+function showMachineRepairingDetailsView() {
+    var kpiView = document.getElementById('machine-kpi-view');
+    if (kpiView) kpiView.style.display = 'none';
+    var parentView = document.getElementById('die-less-knife-cutting-machine-details-view');
+    if (parentView) parentView.style.display = 'none';
+    ['machine-data', 'monthly-machine-inactivity-data'].forEach(function (type) {
+        var detailView = document.getElementById(type + '-view');
+        if (detailView) detailView.style.display = 'none';
+    });
+    var repairView = document.getElementById('machine-repairing-details-view');
+    if (repairView) repairView.style.display = '';
+    var type = 'machine-repairing-details';
     if (dieLessStates[type].allRows.length === 0) dieLessFetch(type);
     else dieLessRender(type);
 }
@@ -3526,6 +4067,20 @@ function initMachineSection() {
         if (backButton) backButton.addEventListener('click', showDieLessKnifeCuttingMachineDetailsView);
     });
 
+    var repairCard = document.getElementById('kpi-machine-repairing-details');
+    if (repairCard) {
+        repairCard.addEventListener('click', showMachineRepairingDetailsView);
+        repairCard.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showMachineRepairingDetailsView();
+            }
+        });
+    }
+
+    var repairBackButton = document.getElementById('btn-back-machine-repairing-details');
+    if (repairBackButton) repairBackButton.addEventListener('click', showMachineKpiView);
+
     document.querySelectorAll('.nav-item[data-page="machine"]').forEach(function (item) {
         item.addEventListener('click', showMachineKpiView);
     });
@@ -3536,6 +4091,7 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initPostAql);
     document.addEventListener('DOMContentLoaded', initWarehouseFms);
     document.addEventListener('DOMContentLoaded', initShipment);
+    document.addEventListener('DOMContentLoaded', initFollowUpPlanned);
     document.addEventListener('DOMContentLoaded', initOtLeave);
     document.addEventListener('DOMContentLoaded', initWarehouseSection);
     document.addEventListener('DOMContentLoaded', initMachineSection);
@@ -3546,6 +4102,7 @@ if (document.readyState === 'loading') {
     initPostAql();
     initWarehouseFms();
     initShipment();
+    initFollowUpPlanned();
     initOtLeave();
     initWarehouseSection();
     initMachineSection();
