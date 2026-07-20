@@ -1427,6 +1427,74 @@
           </div>
         </div>
 
+        <!-- ============================================================ -->
+        <!-- Follow-Up Planned — Detail view (added via main.js)          -->
+        <!-- ============================================================ -->
+        <div id="batch-list-followup-planned-view" class="batch-list-extra-view" style="display:none;">
+
+          <!-- Topbar -->
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-followup-planned" title="Back to PDF">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to PDF
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">event_repeat</span>
+              Follow-Up Planned — Report by Planned Date
+            </div>
+            <button class="btn-excel-icon" id="btn-download-followup-planned-report-excel" title="Download Excel workbook" aria-label="Download Excel" disabled>
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-excel-icon" id="btn-download-followup-planned-pdf" title="Download PDF report" aria-label="Download PDF" disabled>
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#D93025"/>
+                <text x="16" y="21" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="900" fill="white" letter-spacing="-0.5">PDF</text>
+                <circle cx="24" cy="24" r="7" fill="#a52318"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Planned-date picker -->
+          <div class="page-card fup-picker-card">
+            <div class="fup-picker-row">
+              <label class="fup-picker-label" for="followup-planned-date-input">
+                <span class="material-icons-round">event</span>
+                Planned Date
+              </label>
+              <input type="date" id="followup-planned-date-input" class="dt-date-input" />
+              <button class="btn-submit" id="btn-generate-followup-planned-report" type="button">
+                <span class="material-icons-round">search</span>
+                Generate Report
+              </button>
+              <button class="btn-reset" id="btn-clear-followup-planned-report" type="button">
+                <span class="material-icons-round">close</span>
+                Clear
+              </button>
+              <div class="dt-count-badge" id="followup-planned-summary-badge" style="display:none;"></div>
+            </div>
+          </div>
+
+          <!-- Empty / loading state -->
+          <div class="dt-empty-state" id="followup-planned-empty-state">
+            <span class="material-icons-round">event_repeat</span>
+            <p>Select a Planned Date and click "Generate Report" to see 1st/2nd/3rd Follow-up, End-Line QC, Edge-Paint, Pre-AQL, Post AQL and Shipment records due on that date.</p>
+          </div>
+
+          <!-- Per-stage results, filled in by web.js -->
+          <div id="followup-planned-results"></div>
+
+        </div>
 
         <div id="batch-list-bantala-view" style="display:none;">
 
@@ -2324,6 +2392,18 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
+            <div class="kpi-card" id="kpi-machine-repairing-details" role="button" tabindex="0" title="Machine & Repairing Details">
+              <div class="kpi-card-icon kpi-icon-amber">
+                <span class="material-icons-round">build</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Machine &amp; Repairing Details</div>
+                <div class="kpi-card-subtitle">View machine and repairing records</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2525,6 +2605,93 @@
           </div>
         </div>
         <!-- /monthly-machine-inactivity-data-view -->
+
+        <div id="machine-repairing-details-view" style="display:none;">
+          <div class="data-view-topbar">
+            <button class="btn-back" id="btn-back-machine-repairing-details" title="Back to Machine">
+              <span class="material-icons-round">arrow_back_ios</span>
+              Back to Machine
+            </button>
+            <div class="data-view-topbar-title">
+              <span class="material-icons-round">build</span>
+              Machine &amp; Repairing Details
+            </div>
+            <button class="btn-excel-icon" id="btn-download-machine-repairing-details-excel" title="Download filtered data as Excel (.xlsx)" aria-label="Download Excel">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+            <button class="btn-refresh" id="btn-refresh-machine-repairing-details-data" title="Refresh data">
+              <span class="material-icons-round">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="page-card data-table-card">
+            <div class="dt-toolbar">
+              <div class="dt-toolbar-row dt-toolbar-filters">
+                <div class="dt-search-wrap">
+                  <span class="material-icons-round dt-search-icon">search</span>
+                  <input type="text" id="machine-repairing-details-data-search" class="dt-search-input" placeholder="Search across all columns…" />
+                  <button class="dt-search-clear" id="machine-repairing-details-data-search-clear" title="Clear search" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+                <div class="dt-date-range-wrap">
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" id="machine-repairing-details-date-col-label" for="machine-repairing-details-date-from">Date</label>
+                    <input type="date" id="machine-repairing-details-date-from" class="dt-date-input" title="From Date" />
+                  </div>
+                  <span class="dt-date-sep">–</span>
+                  <div class="dt-date-pair">
+                    <label class="dt-ctrl-label" for="machine-repairing-details-date-to">To</label>
+                    <input type="date" id="machine-repairing-details-date-to" class="dt-date-input" title="To Date" />
+                  </div>
+                  <button class="dt-date-clear" id="machine-repairing-details-date-clear" title="Clear date range" style="display:none;">
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dt-toolbar-row dt-toolbar-bottom">
+                <div class="dt-page-size-wrap">
+                  <label class="dt-page-size-label">Show</label>
+                  <select id="machine-repairing-details-data-page-size" class="dt-page-size-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <label class="dt-page-size-label">entries</label>
+                </div>
+                <div class="dt-active-filters" id="machine-repairing-details-active-filters" style="display:none;"></div>
+                <div class="dt-count-badge" id="machine-repairing-details-data-count-badge">— records</div>
+              </div>
+            </div>
+            <div class="dt-table-wrap" id="machine-repairing-details-data-table-wrap">
+              <div class="dt-empty-state" id="machine-repairing-details-data-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <p>Loading data…</p>
+              </div>
+              <table class="dt-table" id="machine-repairing-details-data-table" style="display:none;">
+                <thead id="machine-repairing-details-data-thead"></thead>
+                <tbody id="machine-repairing-details-data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="dt-footer" id="machine-repairing-details-data-footer" style="display:none;">
+              <div class="dt-info" id="machine-repairing-details-data-info">Showing 0 of 0 entries</div>
+              <div class="dt-pagination" id="machine-repairing-details-data-pagination"></div>
+            </div>
+          </div>
+        </div>
+        <!-- /machine-repairing-details-view -->
       </div>
 
       <div id="page-ot-leave" class="page-view" style="display:none;">
@@ -3310,6 +3477,20 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
+
+            <!-- Follow-Up Planned KPI card -->
+            <div class="kpi-card" id="kpi-pdf-followup-planned" role="button" tabindex="0" title="Follow-Up Planned">
+              <div class="kpi-card-icon kpi-icon-teal">
+                <span class="material-icons-round">event_repeat</span>
+              </div>
+              <div class="kpi-card-body">
+                <div class="kpi-card-title">Follow-Up Planned</div>
+                <div class="kpi-card-subtitle">Generate a PDF report for a selected Planned Date</div>
+              </div>
+              <div class="kpi-card-arrow">
+                <span class="material-icons-round">arrow_forward_ios</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3757,8 +3938,11 @@
   FOR GOOGLE APPS SCRIPT: Replace with <?!= include('javascript'); ?>
   FOR STANDALONE USE: keep this tag as-is.
 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="app.js"></script>
 <script src="main.js"></script>
+<script src="pdf-fonts.js"></script>
 <script src="web.js"></script>
 
 </body>
