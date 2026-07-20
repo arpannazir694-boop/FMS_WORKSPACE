@@ -189,6 +189,7 @@ function initTopbarCalendar() {
 
             var weekday = new Date(view.year, view.month, day).getDay();
             if (weekday === 0) dayBtn.classList.add('is-sunday');
+            if (weekday === 6) dayBtn.classList.add('is-saturday');
 
             var isToday = (view.year === today.getFullYear() && view.month === today.getMonth() && day === today.getDate());
             if (isToday) dayBtn.classList.add('is-today');
@@ -3778,11 +3779,13 @@ function showPdfKpiView() {
     var iqcView = document.getElementById('pdf-inline-qc-view');
     var eqcView = document.getElementById('pdf-endline-qc-view');
     var epView  = document.getElementById('pdf-edge-paint-view');
+    var followUpView = document.getElementById('batch-list-followup-planned-view');
     if (kpiView) kpiView.style.display = '';
     if (fsView)  fsView.style.display  = 'none';
     if (iqcView) iqcView.style.display = 'none';
     if (eqcView) eqcView.style.display = 'none';
     if (epView)  epView.style.display  = 'none';
+    if (followUpView) followUpView.style.display = 'none';
 }
 
 function showStoreKpiView() {
@@ -7818,6 +7821,22 @@ function init() {
 // ---------------------------------------------------------------------------
 // PDF Page — KPI card navigation + back buttons
 // ---------------------------------------------------------------------------
+function showPdfFollowUpPlannedView() {
+    var kpiView = document.getElementById('pdf-kpi-view');
+    var detailView = document.getElementById('batch-list-followup-planned-view');
+    var pdfPage = document.getElementById('page-pdf');
+
+    // The Follow-Up Planned markup originated in Production Data. Relocate it
+    // before displaying it, otherwise it remains inside the hidden page.
+    if (detailView && pdfPage && detailView.parentNode !== pdfPage) {
+        pdfPage.appendChild(detailView);
+    }
+
+    showPdfKpiView();
+    if (kpiView) kpiView.style.display = 'none';
+    if (detailView) detailView.style.display = '';
+}
+
 function initPdfPage() {
     var kpiFs = document.getElementById('kpi-pdf-floor-supervisor');
     if (kpiFs) {
@@ -7848,6 +7867,20 @@ function initPdfPage() {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kpiIqc.click(); }
         });
     }
+
+    var kpiFollowUp = document.getElementById('kpi-pdf-followup-planned');
+    if (kpiFollowUp) {
+        kpiFollowUp.addEventListener('click', showPdfFollowUpPlannedView);
+        kpiFollowUp.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showPdfFollowUpPlannedView();
+            }
+        });
+    }
+
+    var backFollowUp = document.getElementById('btn-back-followup-planned');
+    if (backFollowUp) backFollowUp.addEventListener('click', showPdfKpiView);
 
     var backFs = document.getElementById('btn-back-pdf-fs');
     if (backFs) {
@@ -8214,6 +8247,7 @@ window.FMS = {
     parseCreatedAt:   parseCreatedAt,
     paginationRange:  paginationRange,
     exportRowsToXlsx: exportRowsToXlsx,
+    loadExcelJs:      loadExcelJs,
     showBatchListKpiView: showBatchListKpiView
 };
 
