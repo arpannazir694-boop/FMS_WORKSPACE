@@ -83,20 +83,79 @@ html, body {
   justify-content: center;
   height: 100%;
   padding: 20px;
+  overflow: hidden;
+}
+
+/* Decorative page background: sits behind the login card, not inside it. */
+.login-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(232, 237, 247, .48), rgba(232, 237, 247, .48)),
+    url('https://res.cloudinary.com/dnrgcigsj/image/upload/v1784551693/ChatGPT_Image_Jul_20_2026_06_16_32_PM_o9zlon.png') center / cover no-repeat;
+  opacity: .72;
+  pointer-events: none;
+}
+
+.login-wrapper > .login-card {
+  z-index: 1;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Card (split)                                                               */
 /* -------------------------------------------------------------------------- */
 .login-card {
+  position: relative;
+  isolation: isolate;
   display: flex;
   width: 100%;
   max-width: 940px;
   min-height: 560px;
+  padding: 2px;
   border-radius: var(--radius-card);
   overflow: hidden;
+  background: #bf8b18;
   box-shadow: var(--shadow-card);
   animation: cardIn .5s cubic-bezier(.22,.68,0,1.15) both;
+}
+
+/* A rotating gold glint is visible only in the card's 2px outer edge. */
+.login-card::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  width: 175%;
+  aspect-ratio: 1;
+  top: 50%;
+  left: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #7a5210 0deg,
+    #d39b22 60deg,
+    #fff0a4 94deg,
+    #d39b22 128deg,
+    #7a5210 190deg,
+    #d39b22 270deg,
+    #fff0a4 304deg,
+    #d39b22 338deg,
+    #7a5210 360deg
+  );
+  transform: translate(-50%, -50%);
+  animation: goldenBorderRotate 5s linear infinite;
+}
+
+.login-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes goldenBorderRotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card::before { animation: none; }
 }
 
 @keyframes cardIn {
