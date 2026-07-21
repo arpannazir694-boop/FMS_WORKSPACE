@@ -233,7 +233,24 @@
             var refreshBtn = el(opts.refreshBtnId || ('btn-refresh-' + prefix));
             if (refreshBtn) refreshBtn.addEventListener('click', fetchData);
             var downloadBtn = el(opts.downloadBtnId || ('btn-download-' + prefix + '-excel'));
-            if (downloadBtn) downloadBtn.addEventListener('click', function () { if (helpers().exportRowsToXlsx) helpers().exportRowsToXlsx({ headers: state.headers, rows: state.filteredRows, sheetName: opts.sheetName || prefix, filenamePrefix: opts.filenamePrefix || prefix }); });
+            if (downloadBtn) downloadBtn.addEventListener('click', function () {
+                if (!helpers().exportRowsToXlsx) return;
+                var lastColumn       = state.headers.length - 1;
+                var rowColorColIdx   = opts.rowColor ? (opts.rowColor.column === 'last' ? lastColumn : opts.rowColor.column) : -1;
+                helpers().exportRowsToXlsx({
+                    headers: state.headers,
+                    rows: state.filteredRows,
+                    sheetName: opts.sheetName || prefix,
+                    filenamePrefix: opts.filenamePrefix || prefix,
+                    // Mirrors the on-screen status-based row coloring (see
+                    // opts.rowColor / renderTable() above) inside the .xlsx.
+                    rowColor: rowColorColIdx >= 0 ? function (row) {
+                        var statusKey   = String(row[rowColorColIdx] == null ? '' : row[rowColorColIdx]).trim().toLowerCase();
+                        var statusClass = opts.rowColor.map[statusKey];
+                        return statusClass && helpers().excelRowColor_ ? helpers().excelRowColor_('status-' + statusClass) : null;
+                    } : null
+                });
+            });
             var search = el(prefix + '-search');
             search.addEventListener('input', function () { state.search = search.value.trim().toLowerCase(); updateSearchClear(); applyFilters(); });
             el(prefix + '-search-clear').addEventListener('click', function () { search.value = ''; state.search = ''; updateSearchClear(); applyFilters(); });
@@ -845,9 +862,20 @@
 
         if (helpers().showSpinner) helpers().showSpinner('Building Excel workbook...');
 
-        var border      = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+        var EXCEL_FONT_NAME  = 'Calibri';
+        var HEADER_FILL_ARGB = 'FF1F4E78'; // deep blue
+        var border      = { style: 'thin', color: { argb: 'FF000000' } };
         var groupBorder = { style: 'medium', color: { argb: 'FF000000' } };
         var reportDateLabel = formatDateForTitle(lastReport.date);
+
+        // Applies a thin border to every cell (1..colCount) of a given row,
+        // even ones that were never explicitly written to (e.g. spacer rows),
+        // so borders cover the entire worksheet, not just the data table.
+        function borderEntireRow(row, colCount) {
+            for (var c = 1; c <= colCount; c++) {
+                row.getCell(c).border = { top: border, left: border, bottom: border, right: border };
+            }
+        }
 
         loadExcelJs().then(function (ExcelJS) {
             var workbook = new ExcelJS.Workbook();
@@ -876,23 +904,27 @@
                 var titleRow = worksheet.addRow(['Follow-Up Planned — ' + stage.label]);
                 worksheet.mergeCells(titleRow.number, 1, titleRow.number, colCount);
                 titleRow.height = 22;
-                titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF000000' } };
-                titleRow.getCell(1).alignment = { vertical: 'middle' };
+                titleRow.getCell(1).font = { name: EXCEL_FONT_NAME, bold: true, size: 13, color: { argb: 'FF000000' } };
+                titleRow.getCell(1).alignment = { vertical: 'middle', wrapText: false };
+                borderEntireRow(titleRow, colCount);
 
                 var subRow = worksheet.addRow([
                     'Planned Date: ' + reportDateLabel + '   |   ' + stage.count + ' record' + (stage.count === 1 ? '' : 's')
                 ]);
                 worksheet.mergeCells(subRow.number, 1, subRow.number, colCount);
-                subRow.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF5A5A5A' } };
+                subRow.getCell(1).font = { name: EXCEL_FONT_NAME, italic: true, size: 9, color: { argb: 'FF5A5A5A' } };
+                subRow.getCell(1).alignment = { vertical: 'middle', wrapText: false };
+                borderEntireRow(subRow, colCount);
 
-                worksheet.addRow([]); // spacer row
+                var spacerRow = worksheet.addRow([]); // spacer row
+                borderEntireRow(spacerRow, colCount);
 
                 var headerRow = worksheet.addRow(['#'].concat(PD_COLUMNS.map(function (col) { return col.label; })));
                 headerRow.height = 22;
                 headerRow.eachCell(function (cell) {
-                    cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
-                    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
-                    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    cell.font      = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+                    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
                     cell.border    = { top: border, left: border, bottom: border, right: border };
                 });
 
@@ -910,12 +942,13 @@
                     excelRow.height = 18;
                     excelRow.eachCell(function (cell, colNumber) {
                         var isRowNumCol = colNumber === 1;
-                        cell.alignment = { vertical: 'middle', wrapText: true, horizontal: isRowNumCol ? 'center' : undefined };
+                        cell.alignment = { vertical: 'middle', wrapText: false, horizontal: isRowNumCol ? 'center' : undefined };
                         cell.border = { top: isNewGroup ? groupBorder : border, left: border, bottom: border, right: border };
                         if (isRowNumCol) {
-                            cell.font = { color: { argb: 'FF94A3B8' } };
+                            cell.font = { name: EXCEL_FONT_NAME, size: 9, color: { argb: 'FF94A3B8' } };
                             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
                         } else {
+                            cell.font = { name: EXCEL_FONT_NAME, size: 9 };
                             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } };
                         }
                     });
@@ -981,3 +1014,4 @@
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPlannedDateReport); else initPlannedDateReport();
 })();
+
