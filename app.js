@@ -1991,6 +1991,34 @@ function fetchTrackerAttachmentImages(fileIds) {
 // button in the app so all exports are real .xlsx files (not SpreadsheetML
 // .xls files renamed with an .xlsx-looking name).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Hex fill/text colors mirroring the on-screen conditional row-coloring CSS
+// (see the dt-tr-flag-*, dt-tr-status-* and dt-tr-machine-* rules in
+// style.css). Exported via window.FMS so main.js/web.js can build an
+// exportRowsToXlsx({ rowColor: ... }) function that recreates the exact same
+// colors inside the downloaded .xlsx.
+// ---------------------------------------------------------------------------
+var EXCEL_ROW_STATUS_COLORS = {
+    'flag-red':           { bg: 'FDE2E1', fg: '7F1D1D' },
+    'flag-green':         { bg: 'DCF5E0', fg: '14532D' },
+    'status-deep-green':  { bg: '1B5E20', fg: 'FFFFFF' },
+    'status-green':       { bg: '2E7D32', fg: 'FFFFFF' },
+    'status-light-green': { bg: 'A5D6A7', fg: '1B5E20' },
+    'status-yellow':      { bg: 'FFEB3B', fg: '5C4A00' },
+    'status-orange':      { bg: 'FF9800', fg: 'FFFFFF' },
+    'status-red':         { bg: 'F44336', fg: 'FFFFFF' },
+    'machine-major-problem': { bg: 'FFCDD2', fg: '000000' },
+    'machine-minor-problem': { bg: 'FFE0B2', fg: '000000' },
+    'machine-usual-repair':  { bg: 'FFF9C4', fg: '000000' },
+    'machine-audit-purpose': { bg: 'BBDEFB', fg: '000000' },
+    'machine-breakdown':     { bg: 'B71C1C', fg: 'FFFFFF' },
+    'machine-install':       { bg: 'C8E6C9', fg: '000000' },
+    'machine-preventive':    { bg: '9C27B0', fg: 'FFFFFF' }
+};
+function excelRowColor_(key) {
+    return EXCEL_ROW_STATUS_COLORS[key] || null;
+}
+
 function exportRowsToXlsx(options) {
     var headers         = options.headers || [];
     var rows            = options.rows || [];
@@ -1998,12 +2026,18 @@ function exportRowsToXlsx(options) {
     var filenamePrefix  = options.filenamePrefix || 'Export';
     var headerGroups    = options.headerGroups || [];
     var useFormatCellValue = !!options.useFormatCellValue;
+    // Optional: function(row, headers) -> { bg: 'RRGGBB', fg: 'RRGGBB' } | null
+    // Lets a caller reproduce the same conditional row-coloring shown on
+    // screen (e.g. OT & Leave Analysis flagged rows, Machine service-type
+    // colors, Store/Pre-Prod status colors) inside the exported .xlsx.
+    var rowColor        = typeof options.rowColor === 'function' ? options.rowColor : null;
 
     if (!headers.length && !rows.length) { showToast('info', 'No Data', 'There is no data to export.'); return Promise.resolve(); }
 
-    var border      = { style: 'thin', color: { argb: 'FFCBD5E1' } };
-    var groupBorder = { style: 'thin', color: { argb: 'FFBFDBFE' } };
-    var groupFills  = ['FFDBEAFE', 'FFE0F2FE', 'FFECFDF5'];
+    var EXCEL_FONT_NAME  = 'Calibri';
+    var HEADER_FILL_ARGB = 'FF1F4E78'; // deep blue
+    var border      = { style: 'thin', color: { argb: 'FF000000' } };
+    var groupBorder = { style: 'thin', color: { argb: 'FF000000' } };
 
     return loadExcelJs().then(function (ExcelJS) {
         var workbook  = new ExcelJS.Workbook();
@@ -2013,15 +2047,14 @@ function exportRowsToXlsx(options) {
 
         // Optional merged group-header rows (e.g. Floor Supervisor QC column groups)
         headerGroups.forEach(function (groupRow, rowIndex) {
-            var fillColor = groupFills[Math.min(rowIndex, groupFills.length - 1)];
             var excelRow  = worksheet.addRow([rowIndex === 0 ? '#' : '']);
             excelRow.height = 28;
 
             var cornerCell = excelRow.getCell(1);
-            cornerCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+            cornerCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
             cornerCell.border    = { top: groupBorder, left: groupBorder, bottom: groupBorder, right: groupBorder };
-            cornerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            cornerCell.font      = { bold: true, color: { argb: 'FF1E3A5F' } };
+            cornerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+            cornerCell.font      = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
 
             var col = 2;
             groupRow.forEach(function (group) {
@@ -2033,10 +2066,10 @@ function exportRowsToXlsx(options) {
                 if (span > 1) worksheet.mergeCells(excelRow.number, startCol, excelRow.number, endCol);
                 for (var c = startCol; c <= endCol; c++) {
                     var mergedCell = excelRow.getCell(c);
-                    mergedCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+                    mergedCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
                     mergedCell.border    = { top: groupBorder, left: groupBorder, bottom: groupBorder, right: groupBorder };
-                    mergedCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    mergedCell.font      = { bold: true, color: { argb: 'FF1E3A5F' } };
+                    mergedCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+                    mergedCell.font      = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
                 }
                 col = endCol + 1;
             });
@@ -2046,9 +2079,9 @@ function exportRowsToXlsx(options) {
         var headerRow = worksheet.addRow(['#'].concat(headers));
         headerRow.height = 22;
         headerRow.eachCell(function (cell) {
-            cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cell.font      = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
             cell.border    = { top: border, left: border, bottom: border, right: border };
         });
 
@@ -2058,18 +2091,29 @@ function exportRowsToXlsx(options) {
                 var raw = row[ci];
                 return useFormatCellValue ? formatCellValue(header, raw) : String(raw !== undefined && raw !== null ? raw : '');
             }));
-            var excelRow = worksheet.addRow(exportedRow);
+            var excelRow  = worksheet.addRow(exportedRow);
+            var colorMatch = rowColor ? rowColor(row, headers) : null;
             excelRow.height = 18;
             excelRow.eachCell(function (cell, colNumber) {
                 var isRowNumCol = colNumber === 1;
-                cell.alignment = { vertical: 'middle', wrapText: true, horizontal: isRowNumCol ? 'center' : undefined };
+                cell.alignment = { vertical: 'middle', wrapText: false, horizontal: isRowNumCol ? 'center' : undefined };
                 cell.border    = { top: border, left: border, bottom: border, right: border };
-                if (isRowNumCol) {
-                    cell.font = { color: { argb: 'FF94A3B8' } };
+
+                if (colorMatch) {
+                    // Matches the on-screen conditional-formatting color for
+                    // this row (same background across every cell, including
+                    // the row-number column, same as the .dt-tr-* CSS rules).
+                    cell.font = { name: EXCEL_FONT_NAME, size: 9, color: { argb: 'FF' + colorMatch.fg } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorMatch.bg } };
+                    if (isRowNumCol) return;
+                } else if (isRowNumCol) {
+                    cell.font = { name: EXCEL_FONT_NAME, size: 9, color: { argb: 'FF94A3B8' } };
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
                     return;
+                } else {
+                    cell.font = { name: EXCEL_FONT_NAME, size: 9 };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } };
                 }
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } };
 
                 // Batch ID and other zero-padded values must stay text to preserve leading zeros
                 var header      = headers[colNumber - 2];
@@ -2120,16 +2164,18 @@ function downloadTrackerSummaryExcel(type) {
         .then(function (results) {
             var ExcelJS = results[0];
             var images = results[1];
+            var EXCEL_FONT_NAME  = 'Calibri';
+            var HEADER_FILL_ARGB = 'FF1F4E78'; // deep blue
             var workbook = new ExcelJS.Workbook();
             var worksheet = workbook.addWorksheet(config.excelSheetName);
-            var border = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+            var border = { style: 'thin', color: { argb: 'FF000000' } };
             worksheet.columns = [{ width: 6 }].concat(headers.map(function (header) { return { width: /attachment/i.test(header) ? 38 : 20 }; }));
             worksheet.addRow(['#'].concat(headers));
             worksheet.getRow(1).height = 24;
             worksheet.getRow(1).eachCell(function (cell) {
-                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
-                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cell.font = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
                 cell.border = { top: border, left: border, bottom: border, right: border };
             });
             rows.forEach(function (row, rowIndex) {
@@ -2145,7 +2191,8 @@ function downloadTrackerSummaryExcel(type) {
                 var attachmentImageRows = Math.ceil(attachmentCount / 2);
                 excelRow.height = attachmentCount ? attachmentImageRows * 68 + 8 : 20;
                 excelRow.eachCell(function (cell) {
-                    cell.alignment = { vertical: 'middle', wrapText: true };
+                    cell.font = { name: EXCEL_FONT_NAME, size: 9 };
+                    cell.alignment = { vertical: 'middle', wrapText: false };
                     cell.border = { top: border, left: border, bottom: border, right: border };
                     if (rowIndex % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
                 });
@@ -8247,6 +8294,7 @@ window.FMS = {
     parseCreatedAt:   parseCreatedAt,
     paginationRange:  paginationRange,
     exportRowsToXlsx: exportRowsToXlsx,
+    excelRowColor_:   excelRowColor_,
     loadExcelJs:      loadExcelJs,
     showBatchListKpiView: showBatchListKpiView
 };
