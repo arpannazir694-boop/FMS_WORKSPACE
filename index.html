@@ -241,9 +241,6 @@
   <div class="main-content">
 
     <header class="topbar">
-      <button class="topbar-menu-btn" title="Menu" aria-label="Menu">
-        <span class="material-icons-round" style="font-size:22px;">menu</span>
-      </button>
       <span class="topbar-title" id="topbar-title">Home</span>
 
       <div class="topbar-actions">
@@ -271,7 +268,7 @@
             </div>
             <div class="calendar-days" id="calendar-days"></div>
             <div class="calendar-footer">
-              <span class="calendar-selected-label" id="calendar-selected-label">Today</span>
+              <span class="calendar-selected-label"><span class="calendar-live-dot" aria-hidden="true"></span><span id="calendar-selected-label">Today</span></span>
               <div class="calendar-footer-actions">
                 <button type="button" class="calendar-action" id="calendar-today-btn">Today</button>
               </div>
@@ -292,6 +289,7 @@
             <div class="profile-menu-head">
               <div class="profile-menu-avatar">
                 <span class="material-icons-round">account_circle</span>
+                <span class="profile-avatar-status-dot"></span>
               </div>
               <div class="profile-menu-meta">
                 <div class="profile-menu-name" id="profile-menu-name">User</div>
@@ -604,7 +602,7 @@
           </div>
 
           <div class="kpi-grid">
-            <div class="kpi-card" id="kpi-cutting-details" role="button" tabindex="0" title="View Batch Cutting Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-cutting-details" role="button" tabindex="0" title="View Batch Cutting Details">
               <div class="kpi-card-icon kpi-icon-green">
                 <span class="material-icons-round">content_cut</span>
               </div>
@@ -616,7 +614,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-bantala-details" role="button" tabindex="0" title="View Bantala Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-bantala-details" role="button" tabindex="0" title="View Bantala Details">
               <div class="kpi-card-icon kpi-icon-orange">
                 <span class="material-icons-round">table_chart</span>
               </div>
@@ -628,7 +626,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-floor-qc-details" role="button" tabindex="0" title="View Floor Supervisor & In-Line QC Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-floor-qc-details" role="button" tabindex="0" title="View Floor Supervisor & In-Line QC Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">fact_check</span>
               </div>
@@ -640,7 +638,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-edge-paint-details" role="button" tabindex="0" title="View Edge Paint Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-edge-paint-details" role="button" tabindex="0" title="View Edge Paint Details">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">format_paint</span>
               </div>
@@ -652,7 +650,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-pre-aql-details" role="button" tabindex="0" title="View Pre-AQL Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pre-aql-details" role="button" tabindex="0" title="View Pre-AQL Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">assignment_turned_in</span>
               </div>
@@ -664,7 +662,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-endline-qc-details" role="button" tabindex="0" title="View End-Line QC Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-endline-qc-details" role="button" tabindex="0" title="View End-Line QC Details">
               <div class="kpi-card-icon kpi-icon-amber">
                 <span class="material-icons-round">task_alt</span>
               </div>
@@ -676,7 +674,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-post-aql-details" role="button" tabindex="0" title="View POST-AQL Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-post-aql-details" role="button" tabindex="0" title="View POST-AQL Details">
               <div class="kpi-card-icon kpi-icon-green">
                 <span class="material-icons-round">verified</span>
               </div>
@@ -688,7 +686,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-warehouse-fms-details" role="button" tabindex="0" title="View WAREHOUSE-FMS Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-warehouse-fms-details" role="button" tabindex="0" title="View WAREHOUSE-FMS Details">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">warehouse</span>
               </div>
@@ -700,7 +698,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-shipment-details" role="button" tabindex="0" title="View Shipment Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-shipment-details" role="button" tabindex="0" title="View Shipment Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">local_shipping</span>
               </div>
@@ -1609,7 +1607,7 @@
           <div class="kpi-grid">
 
             <!-- KPI Card: Submitted FMS Data -->
-            <div class="kpi-card" id="kpi-submitted-fms" role="button" tabindex="0" title="View all submitted FMS data">
+            <div class="kpi-card kpi-card-live-border" id="kpi-submitted-fms" role="button" tabindex="0" title="View all submitted FMS data">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">table_chart</span>
               </div>
@@ -1621,22 +1619,22 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-dice-summary" role="button" tabindex="0" title="View Dice data summary">
+            <div class="kpi-card kpi-card-live-border" id="kpi-dice-summary" role="button" tabindex="0" title="View Dice data summary">
               <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">casino</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Dice Data Summary</div><div class="kpi-card-subtitle">View all submitted Dice tracker records</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
-            <div class="kpi-card" id="kpi-forma-summary" role="button" tabindex="0" title="View Forma data summary">
+            <div class="kpi-card kpi-card-live-border" id="kpi-forma-summary" role="button" tabindex="0" title="View Forma data summary">
               <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">category</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Forma Data Summary</div><div class="kpi-card-subtitle">View all submitted Forma tracker records</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
-            <div class="kpi-card" id="kpi-submitted-domestic" role="button" tabindex="0" title="View submitted domestic purchase orders">
+            <div class="kpi-card kpi-card-live-border" id="kpi-submitted-domestic" role="button" tabindex="0" title="View submitted domestic purchase orders">
               <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">store</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Submitted Domestic Data</div><div class="kpi-card-subtitle">View domestic form entries from Google Sheet</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
-            <div class="kpi-card" id="kpi-submitted-import" role="button" tabindex="0" title="View submitted import purchase orders">
+            <div class="kpi-card kpi-card-live-border" id="kpi-submitted-import" role="button" tabindex="0" title="View submitted import purchase orders">
               <div class="kpi-card-icon kpi-icon-amber"><span class="material-icons-round">flight_takeoff</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Submitted Import Data</div><div class="kpi-card-subtitle">View import form entries from Google Sheet</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
@@ -2153,7 +2151,7 @@
 
           <div class="kpi-grid">
             <!-- Checking Details KPI card -->
-            <div class="kpi-card" id="kpi-checking-details" role="button" tabindex="0" title="Checking Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-checking-details" role="button" tabindex="0" title="Checking Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">fact_check</span>
               </div>
@@ -2167,7 +2165,7 @@
             </div>
 
             <!-- Warehouse Received Details KPI card -->
-            <div class="kpi-card" id="kpi-warehouse-received-details" role="button" tabindex="0" title="Warehouse Received Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-warehouse-received-details" role="button" tabindex="0" title="Warehouse Received Details">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">inventory</span>
               </div>
@@ -2380,7 +2378,7 @@
           </div>
 
           <div class="kpi-grid">
-            <div class="kpi-card" id="kpi-die-less-knife-cutting-machine-details" role="button" tabindex="0" title="Die-Less Knife Cutting Machine Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-die-less-knife-cutting-machine-details" role="button" tabindex="0" title="Die-Less Knife Cutting Machine Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">content_cut</span>
               </div>
@@ -2392,7 +2390,7 @@
                 <span class="material-icons-round">arrow_forward_ios</span>
               </div>
             </div>
-            <div class="kpi-card" id="kpi-machine-repairing-details" role="button" tabindex="0" title="Machine & Repairing Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-machine-repairing-details" role="button" tabindex="0" title="Machine & Repairing Details">
               <div class="kpi-card-icon kpi-icon-amber">
                 <span class="material-icons-round">build</span>
               </div>
@@ -2419,12 +2417,12 @@
             </div>
           </div>
           <div class="kpi-grid">
-            <div class="kpi-card" id="kpi-machine-data" role="button" tabindex="0" title="Machine Data">
+            <div class="kpi-card kpi-card-live-border" id="kpi-machine-data" role="button" tabindex="0" title="Machine Data">
               <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">storage</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Machine Data</div><div class="kpi-card-subtitle">View machine data and records</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
-            <div class="kpi-card" id="kpi-monthly-machine-inactivity-data" role="button" tabindex="0" title="Monthly Machine Inactivity (Data)">
+            <div class="kpi-card kpi-card-live-border" id="kpi-monthly-machine-inactivity-data" role="button" tabindex="0" title="Monthly Machine Inactivity (Data)">
               <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">event_busy</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Monthly Machine Inactivity (Data)</div><div class="kpi-card-subtitle">View monthly machine inactivity data</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
@@ -2712,7 +2710,7 @@
 
           <div class="kpi-grid">
             <!-- OT Details KPI card -->
-            <div class="kpi-card" id="kpi-ot-details" role="button" tabindex="0" title="OT Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-ot-details" role="button" tabindex="0" title="OT Details">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">more_time</span>
               </div>
@@ -2726,7 +2724,7 @@
             </div>
 
             <!-- Leave Details KPI card -->
-            <div class="kpi-card" id="kpi-leave-details" role="button" tabindex="0" title="Leave Details">
+            <div class="kpi-card kpi-card-live-border" id="kpi-leave-details" role="button" tabindex="0" title="Leave Details">
               <div class="kpi-card-icon kpi-icon-green">
                 <span class="material-icons-round">event_busy</span>
               </div>
@@ -2740,7 +2738,7 @@
             </div>
 
             <!-- OT & Leave Analysis KPI card -->
-            <div class="kpi-card" id="kpi-ot-leave-analysis" role="button" tabindex="0" title="OT & Leave Analysis">
+            <div class="kpi-card kpi-card-live-border" id="kpi-ot-leave-analysis" role="button" tabindex="0" title="OT & Leave Analysis">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">insights</span>
               </div>
@@ -3049,7 +3047,7 @@
 
           <div class="kpi-grid">
             <!-- Domestic Purchase Order Form KPI card -->
-            <div class="kpi-card kpi-card-accent-blue" id="kpi-domestic-po" role="button" tabindex="0" title="Domestic Purchase Order Form">
+            <div class="kpi-card kpi-card-accent-blue kpi-card-live-border" id="kpi-domestic-po" role="button" tabindex="0" title="Domestic Purchase Order Form">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">store</span>
               </div>
@@ -3063,7 +3061,7 @@
             </div>
 
             <!-- Import Purchase Order Form KPI card -->
-            <div class="kpi-card kpi-card-accent-amber" id="kpi-import-po" role="button" tabindex="0" title="Import Purchase Order Form">
+            <div class="kpi-card kpi-card-accent-amber kpi-card-live-border" id="kpi-import-po" role="button" tabindex="0" title="Import Purchase Order Form">
               <div class="kpi-card-icon kpi-icon-amber">
                 <span class="material-icons-round">flight_takeoff</span>
               </div>
@@ -3197,7 +3195,7 @@
 
           <div class="kpi-grid">
             <!-- Pre-Production for Store KPI card -->
-            <div class="kpi-card" id="kpi-store-ai-data" role="button" tabindex="0" title="View Pre-Production for Store">
+            <div class="kpi-card kpi-card-live-border" id="kpi-store-ai-data" role="button" tabindex="0" title="View Pre-Production for Store">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">redeem</span>
               </div>
@@ -3211,7 +3209,7 @@
             </div>
 
             <!-- Pre-Production Data KPI card -->
-            <div class="kpi-card kpi-card-live" id="kpi-preprod-data" role="button" tabindex="0" title="View Pre-Production Data">
+            <div class="kpi-card kpi-card-live kpi-card-live-border" id="kpi-preprod-data" role="button" tabindex="0" title="View Pre-Production Data">
               <div class="kpi-card-icon kpi-card-live-icon">
                 <span class="material-icons-round">insights</span>
                 <span class="kpi-live-dot" title="Live data"></span>
@@ -3423,7 +3421,7 @@
 
           <div class="kpi-grid">
             <!-- Floor Supervisor KPI card -->
-            <div class="kpi-card" id="kpi-pdf-floor-supervisor" role="button" tabindex="0" title="Floor Supervisor">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pdf-floor-supervisor" role="button" tabindex="0" title="Floor Supervisor">
               <div class="kpi-card-icon kpi-icon-green">
                 <span class="material-icons-round">supervisor_account</span>
               </div>
@@ -3437,7 +3435,7 @@
             </div>
 
             <!-- In-Line QC KPI card -->
-            <div class="kpi-card" id="kpi-pdf-inline-qc" role="button" tabindex="0" title="In-Line QC">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pdf-inline-qc" role="button" tabindex="0" title="In-Line QC">
               <div class="kpi-card-icon kpi-icon-blue">
                 <span class="material-icons-round">fact_check</span>
               </div>
@@ -3451,7 +3449,7 @@
             </div>
 
             <!-- End-Line QC KPI card -->
-            <div class="kpi-card" id="kpi-pdf-endline-qc" role="button" tabindex="0" title="End-Line QC">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pdf-endline-qc" role="button" tabindex="0" title="End-Line QC">
               <div class="kpi-card-icon kpi-icon-amber">
                 <span class="material-icons-round">checklist</span>
               </div>
@@ -3465,7 +3463,7 @@
             </div>
 
             <!-- Edge-Paint KPI card -->
-            <div class="kpi-card" id="kpi-pdf-edge-paint" role="button" tabindex="0" title="Edge-Paint">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pdf-edge-paint" role="button" tabindex="0" title="Edge-Paint">
               <div class="kpi-card-icon kpi-icon-purple">
                 <span class="material-icons-round">format_paint</span>
               </div>
@@ -3479,7 +3477,7 @@
             </div>
 
             <!-- Follow-Up Planned KPI card -->
-            <div class="kpi-card" id="kpi-pdf-followup-planned" role="button" tabindex="0" title="Follow-Up Planned">
+            <div class="kpi-card kpi-card-live-border" id="kpi-pdf-followup-planned" role="button" tabindex="0" title="Follow-Up Planned">
               <div class="kpi-card-icon kpi-icon-teal">
                 <span class="material-icons-round">event_repeat</span>
               </div>
@@ -3871,12 +3869,12 @@
             <div class="reports-header-text"><h1>FORMA &amp; DICE FORM</h1><p>Select a tracker form to submit</p></div>
           </div>
           <div class="kpi-grid forma-dice-cards">
-            <div class="kpi-card" id="open-dice-tracker" role="button" tabindex="0" title="Open Dice Tracker Form">
+            <div class="kpi-card kpi-card-live-border" id="open-dice-tracker" role="button" tabindex="0" title="Open Dice Tracker Form">
               <div class="kpi-card-icon kpi-icon-blue"><span class="material-icons-round">casino</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Dice Tracker Form</div><div class="kpi-card-subtitle">Submit received dice details and attachments</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
             </div>
-            <div class="kpi-card" id="open-forma-tracker" role="button" tabindex="0" title="Open Forma Tracker Form">
+            <div class="kpi-card kpi-card-live-border" id="open-forma-tracker" role="button" tabindex="0" title="Open Forma Tracker Form">
               <div class="kpi-card-icon kpi-icon-purple"><span class="material-icons-round">category</span></div>
               <div class="kpi-card-body"><div class="kpi-card-title">Forma Tracker Form</div><div class="kpi-card-subtitle">Submit forma order and delivery details</div></div>
               <div class="kpi-card-arrow"><span class="material-icons-round">arrow_forward_ios</span></div>
