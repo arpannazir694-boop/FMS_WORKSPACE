@@ -23,6 +23,7 @@ var escapeRegex        = FMS.escapeRegex;
 var parseCreatedAt     = FMS.parseCreatedAt;
 var paginationRange    = FMS.paginationRange;
 var exportRowsToXlsx   = FMS.exportRowsToXlsx;
+var excelRowColor_     = FMS.excelRowColor_;
 var showBatchListKpiView = FMS.showBatchListKpiView;
 var currentSubmitter   = FMS.currentSubmitter;
 
@@ -2925,11 +2926,24 @@ function buildOtLeavePagination(type, current, total) {
 function downloadOtLeaveExcel(type) {
     var config  = getOtLeaveConfig(type);
     var state   = getOtLeaveState(type);
+    // Mirrors the on-screen rule: OT & Leave Analysis rows are flagged red
+    // when any of the LAST SIX columns contains "YES".
+    var flagLastSixYes = type === 'ot-leave-analysis';
+    var flagStartCol    = Math.max(0, state.headers.length - 6);
     exportRowsToXlsx({
         headers: state.headers,
         rows: state.filteredRows,
         sheetName: config.excelSheetName,
-        filenamePrefix: config.excelFilePrefix
+        filenamePrefix: config.excelFilePrefix,
+        rowColor: flagLastSixYes ? function (row) {
+            for (var fc = flagStartCol; fc < state.headers.length; fc++) {
+                var fv = row[fc];
+                if (fv !== undefined && fv !== null && String(fv).trim().toUpperCase() === 'YES') {
+                    return excelRowColor_('flag-red');
+                }
+            }
+            return null;
+        } : null
     });
 }
 
@@ -3962,7 +3976,7 @@ function dieLessRender(type) {
     tbody.innerHTML = ''; document.getElementById(p + '-table').style.display = ''; document.getElementById(p + '-empty').style.display = 'none'; document.getElementById(p + '-footer').style.display = total ? '' : 'none';
     if (!total) { var emptyRow = document.createElement('tr'), emptyCell = document.createElement('td'); emptyCell.className = 'dt-td-empty-msg'; emptyCell.colSpan = state.headers.length + 1; emptyCell.textContent = state.allRows.length ? 'No records match the current filter.' : 'No data found in ' + dieLessConfigs[type].label + '.'; emptyRow.appendChild(emptyCell); tbody.appendChild(emptyRow); }
     var machineServiceTypeIndex = type === 'machine-repairing-details' ? state.headers.map(function (header) { return String(header || '').trim().toLowerCase(); }).indexOf(MACHINE_SERVICE_TYPE_HEADER) : -1;
-    state.filteredRows.slice(start, end).forEach(function (row, ri) { var tr = document.createElement('tr'), n = document.createElement('td'); tr.className = (start + ri) % 2 ? 'dt-tr-odd' : 'dt-tr-even'; if (type === 'monthly-machine-inactivity-data') { var statusVisibleColumn = 5, statusDataIndex = statusVisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase(); if (statusVal === 'week off') tr.className += ' dt-tr-flag-green'; else if (statusVal === 'inactive') tr.className += ' dt-tr-flag-red'; } else if (type === 'machine-repairing-details' && machineServiceTypeIndex >= 0) { var machineStatusVal = String(row[machineServiceTypeIndex] === undefined || row[machineServiceTypeIndex] === null ? '' : row[machineServiceTypeIndex]).trim().toLowerCase(); var machineColorClass = MACHINE_ROW_COLOR_MAP[machineStatusVal]; if (machineColorClass) tr.className += ' ' + machineColorClass; } n.className = 'dt-td dt-td-num'; n.textContent = start + ri + 1; tr.appendChild(n); state.headers.forEach(function (_, ci) { var td = document.createElement('td'); td.className = 'dt-td'; td.textContent = row[ci] === undefined ? '' : row[ci]; tr.appendChild(td); }); tbody.appendChild(tr); });
+    state.filteredRows.slice(start, end).forEach(function (row, ri) { var tr = document.createElement('tr'), n = document.createElement('td'); tr.className = (start + ri) % 2 ? 'dt-tr-odd' : 'dt-tr-even'; if (type === 'monthly-machine-inactivity-data') { var statusVisibleColumn = 5, statusDataIndex = statusVisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase(); if (statusVal === 'week off') tr.className += ' dt-tr-flag-green'; else if (statusVal === 'inactive') tr.className += ' dt-tr-flag-red'; } else if (type === 'machine-data') { var col4VisibleColumn = 4, col4DataIndex = col4VisibleColumn - 2; /* subtract 1 for the # column and 1 for zero-based data indexes */ var col4Val = String(row[col4DataIndex] === undefined || row[col4DataIndex] === null ? '' : row[col4DataIndex]); if (col4Val.toLowerCase().indexOf('machine') !== -1) tr.className += ' dt-tr-flag-red'; } else if (type === 'machine-repairing-details' && machineServiceTypeIndex >= 0) { var machineStatusVal = String(row[machineServiceTypeIndex] === undefined || row[machineServiceTypeIndex] === null ? '' : row[machineServiceTypeIndex]).trim().toLowerCase(); var machineColorClass = MACHINE_ROW_COLOR_MAP[machineStatusVal]; if (machineColorClass) tr.className += ' ' + machineColorClass; } n.className = 'dt-td dt-td-num'; n.textContent = start + ri + 1; tr.appendChild(n); state.headers.forEach(function (_, ci) { var td = document.createElement('td'); td.className = 'dt-td'; td.textContent = row[ci] === undefined ? '' : row[ci]; tr.appendChild(td); }); tbody.appendChild(tr); });
     document.getElementById(p + '-count-badge').textContent = total + ' record' + (total === 1 ? '' : 's'); document.getElementById(p + '-info').textContent = total ? 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total + ' entries' : 'Showing 0 entries';
     var pager = document.getElementById(p + '-pagination'); pager.innerHTML = '';
     function addPageButton(label, page, disabled, active, icon) { var b = document.createElement('button'); b.className = 'dt-page-btn' + (active ? ' dt-page-btn-active' : '') + (disabled ? ' dt-page-btn-disabled' : ''); b.disabled = disabled; b.innerHTML = icon ? '<span class="material-icons-round" style="font-size:16px;">' + label + '</span>' : label; if (!disabled) b.addEventListener('click', function () { state.page = page; dieLessRender(type); var wrap = document.getElementById(p + '-table-wrap'); if (wrap) wrap.scrollTop = 0; }); pager.appendChild(b); }
@@ -3973,7 +3987,34 @@ function dieLessRender(type) {
 
 function initDieLessData() {
     Object.keys(dieLessConfigs).forEach(function (type) { var p = type + '-data', state = dieLessStates[type];
-        document.getElementById('btn-refresh-' + p).addEventListener('click', function () { state.allRows = []; dieLessFetch(type); }); document.getElementById('btn-download-' + type + '-excel').addEventListener('click', function () { exportRowsToXlsx({ headers: state.headers, rows: state.filteredRows, sheetName: dieLessConfigs[type].sheet, filenamePrefix: dieLessConfigs[type].file }); });
+        document.getElementById('btn-refresh-' + p).addEventListener('click', function () { state.allRows = []; dieLessFetch(type); }); document.getElementById('btn-download-' + type + '-excel').addEventListener('click', function () {
+            // Mirrors the on-screen conditional row coloring in dieLessRender()
+            // above, so the exported .xlsx matches what's shown on screen.
+            var machineServiceTypeIndex = type === 'machine-repairing-details' ? state.headers.map(function (header) { return String(header || '').trim().toLowerCase(); }).indexOf(MACHINE_SERVICE_TYPE_HEADER) : -1;
+            exportRowsToXlsx({
+                headers: state.headers,
+                rows: state.filteredRows,
+                sheetName: dieLessConfigs[type].sheet,
+                filenamePrefix: dieLessConfigs[type].file,
+                rowColor: function (row) {
+                    if (type === 'monthly-machine-inactivity-data') {
+                        var statusDataIndex = 3; // visible column 5 minus 2 (see dieLessRender)
+                        var statusVal = String(row[statusDataIndex] === undefined || row[statusDataIndex] === null ? '' : row[statusDataIndex]).trim().toLowerCase();
+                        if (statusVal === 'week off') return excelRowColor_('flag-green');
+                        if (statusVal === 'inactive') return excelRowColor_('flag-red');
+                    } else if (type === 'machine-data') {
+                        var col4DataIndex = 2; // visible column 4 minus 2 (see dieLessRender)
+                        var col4Val = String(row[col4DataIndex] === undefined || row[col4DataIndex] === null ? '' : row[col4DataIndex]);
+                        if (col4Val.toLowerCase().indexOf('machine') !== -1) return excelRowColor_('flag-red');
+                    } else if (type === 'machine-repairing-details' && machineServiceTypeIndex >= 0) {
+                        var machineStatusVal = String(row[machineServiceTypeIndex] === undefined || row[machineServiceTypeIndex] === null ? '' : row[machineServiceTypeIndex]).trim().toLowerCase();
+                        var machineColorClass = MACHINE_ROW_COLOR_MAP[machineStatusVal];
+                        if (machineColorClass) return excelRowColor_(machineColorClass.replace(/^dt-tr-/, ''));
+                    }
+                    return null;
+                }
+            });
+        });
         var search = document.getElementById(p + '-search'); search.addEventListener('input', function () { state.search = search.value.trim().toLowerCase(); dieLessApply(type); }); document.getElementById(p + '-search-clear').addEventListener('click', function () { search.value = ''; state.search = ''; dieLessApply(type); });
         ['from', 'to'].forEach(function (side) { var input = document.getElementById(type + '-date-' + side); input.addEventListener('change', function () { state[side === 'from' ? 'dateFrom' : 'dateTo'] = input.value; dieLessApply(type); }); }); document.getElementById(type + '-date-clear').addEventListener('click', function () { state.dateFrom = ''; state.dateTo = ''; document.getElementById(type + '-date-from').value = ''; document.getElementById(type + '-date-to').value = ''; dieLessApply(type); }); document.getElementById(p + '-page-size').addEventListener('change', function (e) { state.pageSize = parseInt(e.target.value, 10) || 25; state.page = 1; dieLessRender(type); });
     });
