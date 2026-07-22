@@ -2631,6 +2631,11 @@ html, body {
 .dt-table tbody tr.dt-tr-status-orange:hover .dt-td {
   background: #fb8c00 !important;
 }
+.dt-tr-status-orange .dt-status-select,
+.dt-tr-status-orange .dt-text-input {
+  background: #ffffff;
+  color: #e65100;
+}
 
 .dt-tr-status-red,
 .dt-tr-status-red.dt-tr-even,
@@ -2711,6 +2716,39 @@ td.dt-col-wide {
 }
 
 .dt-status-select:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Free-text remarks column input (Pre-Production for Store — last column) */
+/* The cell itself gets zero padding so the input can fill it completely. */
+.dt-td-note {
+  padding: 0 !important;
+}
+
+.dt-text-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+  background: var(--card-bg);
+  font-size: 12px;
+  font-family: 'Poppins', sans-serif;
+  color: var(--text-main);
+  padding: 0 13px;
+  outline: none;
+  text-align: left;
+  transition: background-color var(--transition);
+}
+
+.dt-text-input:focus {
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.dt-text-input:disabled {
   opacity: .6;
   cursor: not-allowed;
 }
