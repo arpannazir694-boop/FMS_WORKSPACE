@@ -6,7 +6,7 @@
   <title>FMS Form</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500;1,600&family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500;1,600&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
   <!--
     FOR GOOGLE APPS SCRIPT: Replace the line below with <?!= include('style'); ?>
@@ -280,22 +280,32 @@
           <span class="badge">3</span>
         </div>
         <div class="topbar-user" id="topbar-user" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
-          <div class="topbar-avatar">
-            <span class="material-icons-round">account_circle</span>
+          <div class="topbar-avatar" id="topbar-avatar">
+            <span class="material-icons-round" id="topbar-avatar-icon">account_circle</span>
+            <img class="topbar-avatar-img" id="topbar-avatar-img" src="" alt="" hidden />
           </div>
           <span class="topbar-username" id="topbar-username">User</span>
           <span class="material-icons-round topbar-user-caret">expand_more</span>
           <div class="profile-menu" id="profile-menu" role="menu" aria-label="User profile">
             <div class="profile-menu-head">
-              <div class="profile-menu-avatar">
-                <span class="material-icons-round">account_circle</span>
+              <div class="profile-menu-avatar" id="profile-menu-avatar">
+                <span class="material-icons-round" id="profile-menu-avatar-icon">account_circle</span>
+                <img class="profile-menu-avatar-img" id="profile-menu-avatar-img" src="" alt="" hidden />
                 <span class="profile-avatar-status-dot"></span>
+                <button type="button" class="profile-avatar-edit-btn" id="profile-avatar-edit-btn" title="Change photo" aria-label="Change profile photo">
+                  <span class="material-icons-round">photo_camera</span>
+                </button>
+                <input type="file" id="profile-avatar-file-input" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
               </div>
               <div class="profile-menu-meta">
                 <div class="profile-menu-name" id="profile-menu-name">User</div>
                 <div class="profile-menu-status">Signed in</div>
               </div>
             </div>
+            <button class="profile-menu-item profile-menu-item-neutral" type="button" id="profile-menu-remove-photo" role="menuitem" hidden>
+              <span class="material-icons-round">delete_outline</span>
+              Remove Photo
+            </button>
             <button class="profile-menu-item" type="button" id="profile-menu-logout" role="menuitem">
               <span class="material-icons-round">logout</span>
               Logout
@@ -543,7 +553,7 @@
 
           <div class="home-hero-content">
             <p class="home-anim home-hero-eyebrow" style="animation-delay:.1s">Welcome To</p>
-            <h1 class="home-anim home-hero-title" style="animation-delay:.25s">FMS <span>WORKSPACE</span></h1>
+            <h1 class="home-anim home-hero-title" style="animation-delay:.25s"><span class="home-fms-text">FMS</span> <span id="home-workspace-text" class="home-workspace-text">Workspace</span><span id="home-workspace-cursor" class="home-title-cursor" aria-hidden="true"></span></h1>
             <div class="home-anim home-hero-divider" style="animation-delay:.4s">
               <span class="material-icons-round">diamond</span>
             </div>
