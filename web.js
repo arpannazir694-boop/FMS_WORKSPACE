@@ -16,22 +16,91 @@
     // (optional) editable last column differ.
     //
     // opts:
-    //   prefix              - DOM id prefix, e.g. 'store-preproduction-data'
-    //   action               - doGet ?action= value to fetch rows
-    //   editableLastColumn   - true to render the last column as the
-    //                          In-Stock status <select> (Store view only)
-    //   emptyMessage         - message shown when the sheet has no rows
-    //   wideColumn           - { anchorPattern: RegExp, offset: number, width: '340px' }
-    //                          finds the header matching anchorPattern, then widens
-    //                          the header `offset` columns to its right (e.g. offset:2
-    //                          = "second column to the right of Serial No.")
+    //   prefix                 - DOM id prefix, e.g. 'store-preproduction-data'
+    //   action                 - doGet ?action= value to fetch rows
+    //   editableStatusColumn   - true to render the status <select>
+    //                            (In-Stock / Material Removed) column
+    //                            (Store view only). Its position is the last
+    //                            column, or the second-to-last column if
+    //                            editableTextColumn is also true.
+    //   editableTextColumn     - true to render the LAST column as a free-text
+    //                            <input> whose value is saved back to the
+    //                            sheet (Store view only). Always rendered
+    //                            wide (see .dt-col-wide in style.css).
+    //   emptyMessage           - message shown when the sheet has no rows
+    //   wideColumn             - { anchorPattern: RegExp, offset: number, width: '340px' }
+    //                            finds the header matching anchorPattern, then widens
+    //                            the header `offset` columns to its right (e.g. offset:2
+    //                            = "second column to the right of Serial No.")
+    //                            Ignored when editableTextColumn is true (that
+    //                            column is always the one made wide instead).
+    //   columnWidths           - { columnIndex: 'widthPx' } widens specific
+    //                            columns by their 0-based index within
+    //                            state.headers (i.e. NOT counting the '#'
+    //                            serial column). e.g. { 0: '260px' } widens
+    //                            the first real data column — the one right
+    //                            after '#'.
     // -----------------------------------------------------------------
     function createDataView(opts) {
         var prefix = opts.prefix;
         var action = opts.action;
-        var editableLastColumn = !!opts.editableLastColumn;
+        var editableTextColumn = !!opts.editableTextColumn;
+        var editableStatusColumn = !!opts.editableStatusColumn;
         var emptyMessage = opts.emptyMessage || 'No data found.';
         var state = { headers: [], allRows: [], filteredRows: [], sortCol: -1, sortAsc: true, page: 1, pageSize: 25, search: '', filters: {}, wideColIndex: -1 };
+
+        // The status <select> column sits at the last column, unless the
+        // free-text remarks column is also enabled, in which case the
+        // remarks column takes the last slot and status moves one to the left.
+        function statusColIndex() {
+            if (!editableStatusColumn) return -1;
+            var lastColumn = state.headers.length - 1;
+            return editableTextColumn ? lastColumn - 1 : lastColumn;
+        }
+        function textColIndex() {
+            return editableTextColumn ? state.headers.length - 1 : -1;
+        }
+        // Resolves a rowColor.column spec ('last', 'secondLast', or a numeric
+        // index) against the current header count.
+        function resolveColumnRef_(spec, lastColumn) {
+            if (spec === 'last') return lastColumn;
+            if (spec === 'secondLast') return lastColumn - 1;
+            return spec;
+        }
+
+        // ---------------------------------------------------------------
+        // Recently-saved edits (row/column -> value), kept for a short grace
+        // window so a background refresh (silentRefresh, every autoRefreshMs)
+        // can't momentarily overwrite a value the user JUST picked/typed with
+        // a stale read of the sheet (which can lag a moment behind the write).
+        // Without this, the dropdown/text box can flicker: correct value ->
+        // reverts to old value on the next poll -> corrects again.
+        // ---------------------------------------------------------------
+        var pendingEdits = {}; // key: rowNum + ':' + column -> { value, expires }
+        var PENDING_EDIT_TTL_MS = 60000;
+
+        function rememberPendingEdit_(rowNum, column, value) {
+            pendingEdits[rowNum + ':' + column] = { value: value, expires: Date.now() + PENDING_EDIT_TTL_MS };
+        }
+
+        // Re-applies any still-fresh pendingEdits onto freshly-fetched rows,
+        // and prunes any that have expired (by that point the sheet read is
+        // trusted to have caught up, so the fetched value wins again).
+        function applyPendingEdits_(rows) {
+            var keys = Object.keys(pendingEdits);
+            if (!keys.length) return;
+            var now = Date.now();
+            var rowsByNum = {};
+            rows.forEach(function (row) { rowsByNum[row.__rowNum] = row; });
+            keys.forEach(function (key) {
+                var entry = pendingEdits[key];
+                if (now > entry.expires) { delete pendingEdits[key]; return; }
+                var sep = key.lastIndexOf(':');
+                var rowNum = key.slice(0, sep), column = Number(key.slice(sep + 1));
+                var row = rowsByNum[rowNum];
+                if (row) row[column] = entry.value;
+            });
+        }
 
         function fetchData() {
             var empty = el(prefix + '-empty'), table = el(prefix + '-table'), footer = el(prefix + '-footer');
@@ -47,6 +116,7 @@
                     var rowNumbers = Array.isArray(result.rowNumbers) ? result.rowNumbers : [];
                     state.headers = result.headers;
                     state.allRows = result.rows.map(function (row, i) { row.__rowNum = rowNumbers[i]; return row; });
+                    applyPendingEdits_(state.allRows);
                     state.filteredRows = state.allRows.slice();
                     state.sortCol = -1; state.sortAsc = true; state.page = 1; state.search = ''; state.filters = {};
                     state.wideColIndex = computeWideColIndex();
@@ -61,6 +131,9 @@
         }
 
         function computeWideColIndex() {
+            // The free-text remarks column (always the last column) is
+            // always rendered wide, regardless of any wideColumn option.
+            if (editableTextColumn) return state.headers.length - 1;
             if (!opts.wideColumn) return -1;
             var anchorIdx = -1;
             for (var i = 0; i < state.headers.length; i++) {
@@ -77,13 +150,16 @@
             var headings = document.createElement('tr'), number = document.createElement('th'); number.className = 'dt-th dt-th-num'; number.textContent = '#'; headings.appendChild(number);
             state.headers.forEach(function (header, column) {
                 var isWide = column === state.wideColIndex;
+                var explicitWidth = opts.columnWidths && opts.columnWidths[column];
                 var filterCell = document.createElement('th'), input = document.createElement('input');
                 filterCell.className = 'dt-filter-cell' + (isWide ? ' dt-col-wide' : ''); input.className = 'dt-col-filter'; input.placeholder = 'Filter...';
-                if (isWide && opts.wideColumn.width) filterCell.style.minWidth = opts.wideColumn.width;
+                if (isWide && opts.wideColumn && opts.wideColumn.width) filterCell.style.minWidth = opts.wideColumn.width;
+                if (explicitWidth) filterCell.style.minWidth = explicitWidth;
                 input.addEventListener('input', function () { state.filters[column] = input.value; applyFilters(); });
                 filterCell.appendChild(input); filters.appendChild(filterCell);
                 var th = document.createElement('th'); th.className = 'dt-th dt-th-sortable' + (isWide ? ' dt-col-wide' : ''); th.innerHTML = escapeHtml(header) + '<span class="dt-sort-icon material-icons-round">unfold_more</span>';
-                if (isWide && opts.wideColumn.width) th.style.minWidth = opts.wideColumn.width;
+                if (isWide && opts.wideColumn && opts.wideColumn.width) th.style.minWidth = opts.wideColumn.width;
+                if (explicitWidth) th.style.minWidth = explicitWidth;
                 th.addEventListener('click', function () { state.sortAsc = state.sortCol === column ? !state.sortAsc : true; state.sortCol = column; applyFilters(); }); headings.appendChild(th);
             });
             thead.appendChild(filters); thead.appendChild(headings);
@@ -110,7 +186,9 @@
             table.style.display = ''; empty.style.display = 'none'; footer.style.display = total ? '' : 'none';
             if (!total) { var emptyRow = document.createElement('tr'), emptyCell = document.createElement('td'); emptyCell.className = 'dt-td-empty-msg'; emptyCell.colSpan = state.headers.length + 1; emptyCell.textContent = state.allRows.length ? 'No records match the current filter.' : emptyMessage; emptyRow.appendChild(emptyCell); tbody.appendChild(emptyRow); }
             var lastColumn = state.headers.length - 1;
-            var rowColorColIdx = opts.rowColor ? (opts.rowColor.column === 'last' ? lastColumn : opts.rowColor.column) : -1;
+            var rowColorColIdx = opts.rowColor ? resolveColumnRef_(opts.rowColor.column, lastColumn) : -1;
+            var statusIdx = statusColIndex();
+            var textIdx = textColIndex();
             state.filteredRows.slice(start, end).forEach(function (row, rowIndex) {
                 var tr = document.createElement('tr'), num = document.createElement('td'); var rowClass = (start + rowIndex) % 2 ? 'dt-tr-odd' : 'dt-tr-even';
                 if (rowColorColIdx >= 0) {
@@ -120,8 +198,12 @@
                 }
                 tr.className = rowClass; num.className = 'dt-td dt-td-num'; num.textContent = start + rowIndex + 1; tr.appendChild(num);
                 state.headers.forEach(function (_, column) {
-                    var td = document.createElement('td'); td.className = 'dt-td' + (column === state.wideColIndex ? ' dt-col-wide' : '');
-                    if (editableLastColumn && column === lastColumn) { td.appendChild(buildStatusSelect(row, column)); }
+                    var td = document.createElement('td');
+                    var isNoteCell = editableTextColumn && column === textIdx;
+                    td.className = 'dt-td' + (column === state.wideColIndex ? ' dt-col-wide' : '') + (isNoteCell ? ' dt-td-note' : '');
+                    if (opts.columnWidths && opts.columnWidths[column]) td.style.minWidth = opts.columnWidths[column];
+                    if (editableStatusColumn && column === statusIdx) { td.appendChild(buildStatusSelect(row, column)); }
+                    else if (isNoteCell) { td.appendChild(buildTextInput(row, column)); }
                     else { td.textContent = row[column] == null ? '' : row[column]; }
                     tr.appendChild(td);
                 }); tbody.appendChild(tr);
@@ -129,35 +211,59 @@
             el(prefix + '-count-badge').textContent = total + ' record' + (total === 1 ? '' : 's'); el(prefix + '-info').textContent = total ? 'Showing ' + (start + 1) + ' to ' + end + ' of ' + total + ' entries' : 'Showing 0 entries'; buildPagination(pages);
         }
 
+        var STATUS_OPTIONS = [
+            { value: '', label: 'Select' },
+            { value: 'In-Stock', label: 'In-Stock' },
+            { value: 'Material Removed', label: 'Material Removed' }
+        ];
+
         function buildStatusSelect(row, column) {
             var select = document.createElement('select');
             select.className = 'dt-status-select';
             var currentValue = row[column] == null ? '' : String(row[column]);
-            var isInStock = currentValue === 'In-Stock';
+            var isKnownStatus = STATUS_OPTIONS.some(function (opt) { return opt.value !== '' && opt.value === currentValue; });
 
-            var blankOption = document.createElement('option');
-            blankOption.value = '';
-            blankOption.textContent = 'Select';
-            blankOption.selected = !isInStock;
-            select.appendChild(blankOption);
-
-            var inStockOption = document.createElement('option');
-            inStockOption.value = 'In-Stock';
-            inStockOption.textContent = 'In-Stock';
-            inStockOption.selected = isInStock;
-            select.appendChild(inStockOption);
+            STATUS_OPTIONS.forEach(function (opt) {
+                var option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                option.selected = opt.value === '' ? (currentValue === '' || !isKnownStatus) : currentValue === opt.value;
+                select.appendChild(option);
+            });
 
             select.addEventListener('change', function () {
-                updateCell(row, column, select.value, select);
+                var message = select.value === 'In-Stock' ? 'Marked as In-Stock.' :
+                    (select.value === 'Material Removed' ? 'Marked as Material Removed.' : 'Cleared.');
+                updateCell(row, column, select.value, select, message);
             });
             return select;
         }
 
-        function updateCell(row, column, value, select) {
+        // Free-text remarks column (Store view's last column). Saves on blur
+        // or Enter, and only when the value actually changed.
+        function buildTextInput(row, column) {
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'dt-text-input';
+            input.placeholder = 'Add a note...';
+            input.value = row[column] == null ? '' : String(row[column]);
+
+            var lastSaved = input.value;
+            function save() {
+                if (input.value === lastSaved) return;
+                lastSaved = input.value;
+                updateCell(row, column, input.value, input, 'Note saved.');
+            }
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', function (e) { if (e.key === 'Enter') input.blur(); });
+            return input;
+        }
+
+        function updateCell(row, column, value, control, successMessage) {
             var rowNum = row.__rowNum;
             if (!rowNum) { if (helpers().showToast) helpers().showToast('error', 'Update Error', 'Could not determine the sheet row for this record.'); return; }
             var previousValue = row[column] == null ? '' : String(row[column]);
-            select.disabled = true;
+            control.disabled = true;
             var url = STORE_WEB_APP_URL + '?action=updateStoreCell&row=' + encodeURIComponent(rowNum) +
                 '&column=' + encodeURIComponent(column) + '&value=' + encodeURIComponent(value) + '&_=' + Date.now();
             fetch(url)
@@ -165,7 +271,8 @@
                 .then(function (result) {
                     if (!result || !result.success) throw new Error((result && result.error) || 'Failed to update the sheet.');
                     row[column] = value;
-                    if (helpers().showToast) helpers().showToast('success', 'Store Updated', value === 'In-Stock' ? 'Marked as In-Stock.' : 'Cleared.');
+                    rememberPendingEdit_(rowNum, column, value);
+                    if (helpers().showToast) helpers().showToast('success', 'Store Updated', successMessage || 'Saved.');
                     renderTable();
                 })
                 .catch(function (error) {
@@ -173,7 +280,7 @@
                     row[column] = previousValue;
                     renderTable();
                 })
-                .finally(function () { select.disabled = false; });
+                .finally(function () { control.disabled = false; });
         }
 
         function buildPagination(totalPages) {
@@ -203,6 +310,7 @@
                     var rowNumbers = Array.isArray(result.rowNumbers) ? result.rowNumbers : [];
                     state.headers = result.headers;
                     state.allRows = result.rows.map(function (row, i) { row.__rowNum = rowNumbers[i]; return row; });
+                    applyPendingEdits_(state.allRows);
                     state.wideColIndex = computeWideColIndex();
                     recomputeFilteredRows();
                     renderTable();
@@ -236,7 +344,7 @@
             if (downloadBtn) downloadBtn.addEventListener('click', function () {
                 if (!helpers().exportRowsToXlsx) return;
                 var lastColumn       = state.headers.length - 1;
-                var rowColorColIdx   = opts.rowColor ? (opts.rowColor.column === 'last' ? lastColumn : opts.rowColor.column) : -1;
+                var rowColorColIdx   = opts.rowColor ? resolveColumnRef_(opts.rowColor.column, lastColumn) : -1;
                 helpers().exportRowsToXlsx({
                     headers: state.headers,
                     rows: state.filteredRows,
@@ -266,17 +374,24 @@
     var storeView = createDataView({
         prefix: 'store-preproduction-data',
         action: 'getPreProductionForStoreData',
-        editableLastColumn: true,
+        editableStatusColumn: true,
+        editableTextColumn: true,
         emptyMessage: 'No data found in STORE.',
         sheetName: 'STORE',
+        // Widens the column right after '#' (i.e. "column 2" counting '#'
+        // as column 1) — the first real data column from the sheet.
+        columnWidths: { 0: '260px' },
         filenamePrefix: 'Pre_Production_for_Store',
         refreshBtnId: 'btn-refresh-store-preproduction-data',
         downloadBtnId: 'btn-download-store-preproduction-excel',
         autoRefreshMs: 30000,
         rowColor: {
-            column: 'last',
+            // The status column is second-to-last now that the free-text
+            // remarks column (last) sits to its right.
+            column: 'secondLast',
             map: {
-                'in-stock': 'green'
+                'in-stock': 'green',
+                'material removed': 'orange'
             }
         }
     });
@@ -284,7 +399,6 @@
     var preprodDataView = createDataView({
         prefix: 'preprod-data',
         action: 'getPreProdData',
-        editableLastColumn: false,
         emptyMessage: 'No data found in Pre-Prod Data.',
         sheetName: 'Pre-Prod Data',
         filenamePrefix: 'Pre_Production_Data',
@@ -1014,4 +1128,3 @@
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPlannedDateReport); else initPlannedDateReport();
 })();
-
