@@ -109,6 +109,145 @@ function initProfileMenu() {
 }
 
 // ---------------------------------------------------------------------------
+// Profile photo — lets a signed-in user upload their own picture, shown in
+// the topbar avatar and the profile dropdown. Photos are stored server-side
+// (Code.gs: updateUserPhoto / getUserPhoto / removeUserPhoto — a Drive file
+// per user, referenced from the USERS sheet) and cached locally per-username
+// so returning visits don't need a round trip before showing the photo.
+// ---------------------------------------------------------------------------
+function profilePhotoCacheKey_(username) {
+    return 'fms_user_photo_' + String(username || '').trim().toLowerCase();
+}
+
+function applyAvatarPhoto_(url) {
+    var pairs = [
+        [document.getElementById('topbar-avatar-img'), document.getElementById('topbar-avatar-icon')],
+        [document.getElementById('profile-menu-avatar-img'), document.getElementById('profile-menu-avatar-icon')]
+    ];
+    pairs.forEach(function (pair) {
+        var img = pair[0], icon = pair[1];
+        if (!img) return;
+        if (url) {
+            img.src = url;
+            img.hidden = false;
+            if (icon) icon.hidden = true;
+        } else {
+            img.hidden = true;
+            img.removeAttribute('src');
+            if (icon) icon.hidden = false;
+        }
+    });
+    var removeBtn = document.getElementById('profile-menu-remove-photo');
+    if (removeBtn) removeBtn.hidden = !url;
+}
+
+function loadUserPhoto_(username) {
+    if (!username) return;
+    var cacheKey = profilePhotoCacheKey_(username);
+    var cached = null;
+    try { cached = localStorage.getItem(cacheKey); } catch (e) {}
+    if (cached) applyAvatarPhoto_(cached);
+
+    jsonp({ action: 'getUserPhoto', username: username }, function (err, result) {
+        if (err || !result || !result.success) return;
+        var url = result.photoUrl || '';
+        applyAvatarPhoto_(url);
+        try {
+            if (url) localStorage.setItem(cacheKey, url);
+            else localStorage.removeItem(cacheKey);
+        } catch (e) {}
+    });
+}
+
+function readFileAsBase64_(file) {
+    return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result || '').split(',')[1] || ''); };
+        reader.onerror = function () { reject(new Error('Could not read the selected image.')); };
+        reader.readAsDataURL(file);
+    });
+}
+
+function uploadUserPhoto_(file, username) {
+    var MAX_BYTES = 3 * 1024 * 1024;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+        showToast('error', 'Unsupported file', 'Please choose a JPG, PNG or WEBP image.');
+        return;
+    }
+    if (file.size > MAX_BYTES) {
+        showToast('error', 'Image too large', 'Please choose an image under 3MB.');
+        return;
+    }
+
+    readFileAsBase64_(file).then(function (base64) {
+        return fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'updateUserPhoto', username: username, base64: base64, mimeType: file.type })
+        });
+    }).then(function (response) {
+        if (!response.ok) throw new Error('The server returned HTTP ' + response.status + '.');
+        return response.json();
+    }).then(function (result) {
+        if (!result || !result.success) throw new Error((result && result.error) || 'Could not update the photo.');
+        applyAvatarPhoto_(result.photoUrl);
+        try { localStorage.setItem(profilePhotoCacheKey_(username), result.photoUrl); } catch (e) {}
+        showToast('success', 'Photo updated', 'Your profile photo has been updated.');
+    }).catch(function (err) {
+        showToast('error', 'Upload failed', (err && err.message) || 'Please check your internet connection and try again.');
+    });
+}
+
+function removeUserPhoto_(username) {
+    fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'removeUserPhoto', username: username })
+    }).then(function (response) {
+        if (!response.ok) throw new Error('The server returned HTTP ' + response.status + '.');
+        return response.json();
+    }).then(function (result) {
+        if (!result || !result.success) throw new Error((result && result.error) || 'Could not remove the photo.');
+        applyAvatarPhoto_('');
+        try { localStorage.removeItem(profilePhotoCacheKey_(username)); } catch (e) {}
+        showToast('success', 'Photo removed', 'Your profile photo has been removed.');
+    }).catch(function (err) {
+        showToast('error', 'Action failed', (err && err.message) || 'Please check your internet connection and try again.');
+    });
+}
+
+function initProfilePhoto() {
+    var currentUser = getSession();
+    if (!currentUser) return;
+
+    loadUserPhoto_(currentUser);
+
+    var editBtn    = document.getElementById('profile-avatar-edit-btn');
+    var fileInput  = document.getElementById('profile-avatar-file-input');
+    var removeBtn  = document.getElementById('profile-menu-remove-photo');
+
+    if (editBtn && fileInput) {
+        editBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            fileInput.click();
+        });
+        fileInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        fileInput.addEventListener('change', function () {
+            var file = fileInput.files && fileInput.files[0];
+            fileInput.value = '';
+            if (file) uploadUserPhoto_(file, currentUser);
+        });
+    }
+
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            removeUserPhoto_(currentUser);
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Topbar Calendar — clean month view popover, opened from the calendar icon
 // in the header. Sundays are highlighted; today and any clicked date are
 // marked distinctly. Subtle fade/slide animations on open and month change.
@@ -948,6 +1087,45 @@ function initNav() {
 // ---------------------------------------------------------------------------
 var HOME_WELCOME_MESSAGE = "Welcome back to FMS Workspace. We're glad to have you here. Stay organized, stay informed, and let's achieve excellence together.";
 var homeTypeTimer = null;
+var homeWorkspaceTimer = null;
+var homeWorkspaceStartTimer = null;
+
+function animateHomeWorkspace() {
+    var workspaceEl = document.getElementById('home-workspace-text');
+    if (!workspaceEl) return;
+
+    var word = 'Workspace';
+    var colorIndex = 0;
+    workspaceEl.textContent = word;
+    workspaceEl.className = 'home-workspace-text';
+
+    function runCycle() {
+        var index = word.length;
+        homeWorkspaceTimer = setInterval(function () {
+            index--;
+            workspaceEl.textContent = word.slice(0, index);
+            if (index === 0) {
+                clearInterval(homeWorkspaceTimer);
+                homeWorkspaceStartTimer = setTimeout(function () {
+                    colorIndex = (colorIndex % 6) + 1;
+                    workspaceEl.className = 'home-workspace-text workspace-color-' + colorIndex;
+                    homeWorkspaceTimer = setInterval(function () {
+                        index++;
+                        workspaceEl.textContent = word.slice(0, index);
+                        if (index === word.length) {
+                            clearInterval(homeWorkspaceTimer);
+                            homeWorkspaceTimer = null;
+                            homeWorkspaceStartTimer = setTimeout(runCycle, 1800);
+                        }
+                    }, 105);
+                }, 350);
+            }
+        }, 70);
+    }
+
+    // Let the title settle briefly, then continuously erase and retype it.
+    homeWorkspaceStartTimer = setTimeout(runCycle, 1200);
+}
 
 function typeHomeWelcomeMessage() {
     var textEl = document.getElementById('home-welcome-text');
@@ -977,6 +1155,10 @@ function initHomeHero() {
 
     var nameEl = document.getElementById('home-greeting-name');
     if (nameEl) nameEl.textContent = currentSubmitter() || 'there';
+
+    if (homeWorkspaceTimer) { clearInterval(homeWorkspaceTimer); homeWorkspaceTimer = null; }
+    if (homeWorkspaceStartTimer) { clearTimeout(homeWorkspaceStartTimer); homeWorkspaceStartTimer = null; }
+    animateHomeWorkspace();
 
     // Restart the entrance animation every time Home is opened
     hero.classList.remove('is-active');
@@ -7840,6 +8022,7 @@ function downloadIqcExcel() {
 function init() {
     enforceLogin();
     initProfileMenu();
+    initProfilePhoto();
     initTopbarCalendar();
     initBirthdayCelebration();
     initNav();
