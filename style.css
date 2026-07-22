@@ -24,7 +24,7 @@
   --sidebar-text:      #94a3b8;
   --sidebar-text-active: #ffffff;
   --sidebar-glow:      rgba(37,99,235,0.35);
-  --sidebar-width: 52px;
+  --sidebar-width: 64px;
   --body-bg:       #f5f7fb;
   --card-bg:       #ffffff;
   --border:        #e2e8f0;
@@ -54,6 +54,27 @@
   --topbar-neu-raised-sm:
     4px 4px 8px var(--topbar-neu-dark),
     -4px -4px 8px var(--topbar-neu-light);
+
+  /* Glassmorphism topbar tokens — BLUE frosted-glass header, tuned to the
+     app's actual navy+gold identity (matches --sidebar-bg / --topbar-bg)
+     instead of a generic light blue-violet, so it doesn't wash out pale
+     over light page backgrounds behind the blur. */
+  --topbar-glass-bg:          linear-gradient(120deg, rgba(9,24,54,.92) 0%, rgba(13,42,94,.88) 55%, rgba(20,58,130,.85) 100%);
+  --topbar-glass-bg-strong:   linear-gradient(120deg, rgba(9,24,54,.97) 0%, rgba(13,42,94,.94) 55%, rgba(20,58,130,.92) 100%);
+  --topbar-glass-btn-bg:      rgba(255,255,255,.1);
+  --topbar-glass-btn-bg-hover: rgba(255,255,255,.18);
+  --topbar-glass-border:      rgba(255,255,255,.16);
+  --topbar-glass-rim:         inset 0 1px 0 rgba(255,255,255,.22);
+  --topbar-glass-shadow:      0 10px 34px rgba(3,10,26,.5);
+  --topbar-glass-shadow-sm:   0 3px 10px rgba(3,10,26,.4);
+  --topbar-glass-shadow-pressed: inset 0 2px 6px rgba(2,8,20,.6);
+  --topbar-glass-blur:        blur(18px) saturate(160%);
+  --topbar-glass-blur-sm:     blur(10px) saturate(160%);
+  --topbar-glass-text:        #ffffff;
+  --topbar-glass-text-sub:    rgba(255,255,255,.72);
+  --topbar-glass-accent:      #f4c752;
+  --topbar-glass-accent-soft: rgba(244,199,82,.22);
+  --topbar-glass-ease:        cubic-bezier(.22,.9,.32,1.16);
   /* Neumorphic sidebar tokens — same navy base as --sidebar-bg (#0d1b2e) */
   --sidebar-neu-light: rgba(255,255,255,.07);
   --sidebar-neu-dark:  rgba(0,0,0,.65);
@@ -147,8 +168,8 @@ html, body {
 }
 
 .sidebar-logo-img {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
   display: block;
   border-radius: 10px;
@@ -174,8 +195,8 @@ html, body {
 }
 
 .nav-item {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -212,7 +233,7 @@ html, body {
 }
 
 .nav-item .nav-icon {
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1;
 }
 
@@ -321,9 +342,10 @@ html, body {
 
 .topbar {
   height: 60px;
-  background: linear-gradient(145deg, var(--topbar-bg-light), var(--topbar-bg-dark));
-  border-bottom: none;
-  border-radius: 0 0 18px 18px;
+  background: var(--topbar-glass-bg);
+  backdrop-filter: var(--topbar-glass-blur);
+  -webkit-backdrop-filter: var(--topbar-glass-blur);
+  border-bottom: 1px solid var(--topbar-glass-border);
   display: flex;
   align-items: center;
   padding: 0 28px;
@@ -331,22 +353,17 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow:
-    var(--topbar-neu-raised),
-    0 8px 20px rgba(2,10,28,.35),
-    inset 0 1px 0 rgba(255,255,255,.06);
+  box-shadow: var(--topbar-glass-shadow), var(--topbar-glass-rim);
 }
 
 .topbar-title {
   font-size: 17px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--topbar-glass-text);
   font-family: 'Montserrat', sans-serif;
   letter-spacing: -.2px;
   flex: 1;
-  text-shadow:
-    1px 1px 2px var(--topbar-neu-dark),
-    -1px -1px 1px var(--topbar-neu-light);
+  text-shadow: 0 1px 3px rgba(4,14,36,.35);
 }
 
 .topbar-actions {
@@ -358,10 +375,12 @@ html, body {
 .topbar-calendar-wrap { position: relative; }
 
 .topbar-calendar-btn {
-  background: linear-gradient(145deg, var(--topbar-bg-light), var(--topbar-bg-dark));
-  border: 1px solid rgba(255,255,255,.14);
+  background: var(--topbar-glass-btn-bg);
+  backdrop-filter: var(--topbar-glass-blur-sm);
+  -webkit-backdrop-filter: var(--topbar-glass-blur-sm);
+  border: 1px solid var(--topbar-glass-border);
   border-radius: 12px;
-  color: #ffffff;
+  color: var(--topbar-glass-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -369,14 +388,19 @@ html, body {
   width: 36px;
   height: 36px;
   padding: 5px;
-  box-shadow: var(--topbar-neu-raised-sm);
-  transition: color var(--transition), box-shadow .15s ease, transform .12s ease;
+  box-shadow: var(--topbar-glass-shadow-sm), var(--topbar-glass-rim);
+  transition: color .15s ease, box-shadow .18s ease, transform .22s var(--topbar-glass-ease), background .18s ease;
 }
 
 .topbar-calendar-btn:hover,
-.topbar-calendar-btn:focus-visible { color: #fbbf24; transform: translateY(-1px); }
-.topbar-calendar-btn:focus-visible { outline: 2px solid rgba(251,191,36,.5); outline-offset: 2px; }
-.topbar-calendar-btn:active { box-shadow: var(--topbar-neu-pressed); transform: translateY(0); }
+.topbar-calendar-btn:focus-visible {
+  color: var(--topbar-glass-accent);
+  background: var(--topbar-glass-btn-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--topbar-glass-shadow-sm), var(--topbar-glass-rim), 0 0 0 3px var(--topbar-glass-accent-soft);
+}
+.topbar-calendar-btn:focus-visible { outline: 2px solid rgba(251,191,36,.4); outline-offset: 2px; }
+.topbar-calendar-btn:active { box-shadow: var(--topbar-glass-shadow-pressed); transform: translateY(0); }
 
 @property --cal-angle {
   syntax: '<angle>';
@@ -391,13 +415,13 @@ html, body {
   width: 320px;
   padding: 20px;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,0) 60px),
-    #eef1f9;
-  border: none;
+    linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.4) 60px);
+  backdrop-filter: var(--topbar-glass-blur);
+  -webkit-backdrop-filter: var(--topbar-glass-blur);
+  border: 1px solid var(--topbar-glass-border);
   border-radius: 28px;
   box-shadow:
-    9px 9px 24px rgba(163, 177, 198, .5),
-    -9px -9px 20px rgba(255, 255, 255, .9),
+    var(--topbar-glass-shadow),
     0 0 0 1px rgba(255, 255, 255, .5) inset;
   z-index: 100;
   overflow: visible;
@@ -686,9 +710,9 @@ html, body {
    bounces or flashes so it stays elegant rather than distracting. */
 .topbar-calendar-btn .material-icons-round { transition: transform .2s ease; }
 .topbar-calendar-wrap.calendar-open .topbar-calendar-btn {
-  color: #fbbf24;
-  background: linear-gradient(145deg, var(--topbar-bg-dark), var(--topbar-bg-light));
-  box-shadow: var(--topbar-neu-pressed);
+  color: var(--topbar-glass-accent);
+  background: var(--topbar-glass-btn-bg-hover);
+  box-shadow: var(--topbar-glass-shadow-pressed), 0 0 0 3px var(--topbar-glass-accent-soft);
 }
 .topbar-calendar-wrap.calendar-open .topbar-calendar-btn .material-icons-round { transform: scale(1.08); }
 
@@ -795,28 +819,35 @@ html, body {
 .topbar-bell {
   position: relative;
   cursor: pointer;
-  color: #ffffff;
+  color: var(--topbar-glass-text);
   display: flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: linear-gradient(145deg, var(--topbar-bg-light), var(--topbar-bg-dark));
-  box-shadow: var(--topbar-neu-raised-sm);
-  transition: box-shadow .15s ease, transform .12s ease, color var(--transition);
+  border: 1px solid var(--topbar-glass-border);
+  background: var(--topbar-glass-btn-bg);
+  backdrop-filter: var(--topbar-glass-blur-sm);
+  -webkit-backdrop-filter: var(--topbar-glass-blur-sm);
+  box-shadow: var(--topbar-glass-shadow-sm), var(--topbar-glass-rim);
+  transition: color .15s ease, box-shadow .18s ease, transform .22s var(--topbar-glass-ease), background .18s ease;
 }
 
-.topbar-bell:hover { color: #fbbf24; transform: translateY(-1px); }
-.topbar-bell:active { box-shadow: var(--topbar-neu-pressed); transform: translateY(0); }
+.topbar-bell:hover {
+  color: var(--topbar-glass-accent);
+  background: var(--topbar-glass-btn-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--topbar-glass-shadow-sm), var(--topbar-glass-rim), 0 0 0 3px var(--topbar-glass-accent-soft);
+}
+.topbar-bell:active { box-shadow: var(--topbar-glass-shadow-pressed); transform: translateY(0); }
 
 .topbar-bell .badge {
   position: absolute;
   top: -4px;
   right: -4px;
   background: #fbbf24;
-  color: #0b2f73;
+  color: #78350f;
   font-size: 9px;
   font-weight: 700;
   width: 16px;
@@ -825,7 +856,17 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 2px 2px 5px var(--topbar-neu-dark);
+  box-shadow: 0 0 0 2px rgba(13,35,86,.55), 0 0 0 0 rgba(251,191,36,.6);
+  animation: topbarBadgePulse 2.2s ease-out infinite;
+}
+
+@keyframes topbarBadgePulse {
+  0%   { box-shadow: 0 0 0 2px rgba(13,35,86,.55), 0 0 0 0 rgba(251,191,36,.55); }
+  70%  { box-shadow: 0 0 0 2px rgba(13,35,86,.55), 0 0 0 6px rgba(251,191,36,0); }
+  100% { box-shadow: 0 0 0 2px rgba(13,35,86,.55), 0 0 0 0 rgba(251,191,36,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar-bell .badge { animation: none; }
 }
 
 .topbar-user {
@@ -837,48 +878,57 @@ html, body {
   padding: 4px 12px 4px 4px;
   border-radius: 999px;
   outline: none;
-  border: 1px solid rgba(255,255,255,.14);
-  background: linear-gradient(145deg, var(--topbar-bg-light), var(--topbar-bg-dark));
-  box-shadow: var(--topbar-neu-raised-sm);
-  transition: box-shadow .15s ease, transform .12s ease;
+  border: 1px solid var(--topbar-glass-border);
+  background: var(--topbar-glass-btn-bg);
+  backdrop-filter: var(--topbar-glass-blur-sm);
+  -webkit-backdrop-filter: var(--topbar-glass-blur-sm);
+  box-shadow: var(--topbar-glass-shadow-sm), var(--topbar-glass-rim);
+  transition: box-shadow .18s ease, transform .22s var(--topbar-glass-ease), background .18s ease;
 }
 
 .topbar-user:hover,
 .topbar-user:focus-visible {
   transform: translateY(-1px);
+  background: var(--topbar-glass-btn-bg-hover);
 }
 
 .topbar-user.profile-open {
-  box-shadow: var(--topbar-neu-pressed);
+  box-shadow: var(--topbar-glass-shadow-pressed);
+  background: var(--topbar-glass-accent-soft);
 }
 
 .topbar-user:focus-visible {
-  box-shadow: var(--topbar-neu-raised-sm), 0 0 0 3px rgba(251,191,36,.35);
+  box-shadow: var(--topbar-glass-shadow-sm), 0 0 0 3px var(--topbar-glass-accent-soft);
 }
 
 .topbar-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(145deg, var(--topbar-bg-dark), var(--topbar-bg-light));
-  box-shadow: var(--topbar-neu-pressed);
+  background: linear-gradient(145deg, #16305e, #0d1b2e);
+  box-shadow: 0 0 0 2px rgba(244,199,82,.45), 0 3px 10px rgba(3,10,26,.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: #f4c752;
   font-size: 20px;
   overflow: hidden;
+  transition: box-shadow .2s ease;
+}
+
+.topbar-user:hover .topbar-avatar {
+  box-shadow: 0 0 0 2px rgba(244,199,82,.75), 0 3px 12px rgba(3,10,26,.55);
 }
 
 .topbar-username {
   font-size: 13px;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--topbar-glass-text);
 }
 
 .topbar-user-caret {
   font-size: 18px;
-  color: #fbbf24;
+  color: var(--topbar-glass-accent);
   transition: transform var(--transition);
 }
 
@@ -950,7 +1000,7 @@ html, body {
 
 .profile-avatar-status-dot {
   position: absolute;
-  bottom: -1px;
+  top: -1px;
   right: -1px;
   width: 12px;
   height: 12px;
@@ -958,6 +1008,7 @@ html, body {
   background: #22c55e;
   border: 2px solid #ffffff;
   animation: kpiLiveDotPulse 1.8s ease-out infinite;
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -970,6 +1021,60 @@ html, body {
 .profile-menu-avatar .material-icons-round {
   font-size: 28px;
 }
+
+.profile-menu-avatar-img,
+.topbar-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Without this, our own "display: block" above beats the browser's default
+   [hidden] { display: none } rule, so setting img.hidden = true in app.js
+   never actually hides the <img> — it kept showing on top of / next to the
+   fallback icon (two avatars at once). This restores real hiding. */
+.topbar-avatar-img[hidden],
+.profile-menu-avatar-img[hidden] {
+  display: none !important;
+}
+
+/* Same issue hits the fallback icon spans: the Material Icons Round font's
+   own stylesheet (loaded via <link> in index.html) sets
+   .material-icons-round { display: inline-block }, which — being an author
+   stylesheet just like ours — also beats the browser's default [hidden]
+   rule. So after a photo uploads and icon.hidden = true is set, the icon
+   kept showing right along with the new photo. Force it hidden here too. */
+#topbar-avatar-icon[hidden],
+#profile-menu-avatar-icon[hidden] {
+  display: none !important;
+}
+
+.profile-avatar-edit-btn {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: var(--gold);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .15s ease, background .15s ease;
+  z-index: 3;
+}
+
+.profile-avatar-edit-btn .material-icons-round { font-size: 11px; }
+
+.profile-avatar-edit-btn:hover { transform: scale(1.12); background: var(--gold-dark); }
+.profile-avatar-edit-btn:focus-visible { outline: 2px solid rgba(201,162,39,.5); outline-offset: 2px; }
 
 .profile-menu-meta {
   min-width: 0;
@@ -1014,6 +1119,16 @@ html, body {
   background: #fef2f2;
   color: #991b1b;
   outline: none;
+}
+
+.profile-menu-item.profile-menu-item-neutral {
+  color: var(--text-sub);
+}
+
+.profile-menu-item.profile-menu-item-neutral:hover,
+.profile-menu-item.profile-menu-item-neutral:focus-visible {
+  background: #f1f5f9;
+  color: var(--text-main);
 }
 
 .profile-menu-item .material-icons-round {
@@ -3152,15 +3267,41 @@ mark.dt-highlight {
 }
 
 .home-hero-title {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   font-weight: 800;
-  font-size: 46px;
+  font-size: 64px;
   letter-spacing: .5px;
   color: var(--navy-deep);
   line-height: 1.08;
   margin-bottom: 20px;
 }
 .home-hero-title span { color: var(--navy-deep); }
+.home-fms-text {
+  display: inline-block;
+  color: var(--navy-deep);
+  -webkit-text-stroke: 1px #d49a20;
+  text-shadow: 0 0 3px rgba(212, 154, 32, .45);
+}
+.home-workspace-text {
+  display: inline-block;
+  min-width: 9.5ch;
+  color: var(--navy-deep);
+}
+.home-workspace-text.workspace-color-1 { color: #d49a20; }
+.home-workspace-text.workspace-color-2 { color: #0f9b8e; }
+.home-workspace-text.workspace-color-3 { color: #2563eb; }
+.home-workspace-text.workspace-color-4 { color: #8b5cf6; }
+.home-workspace-text.workspace-color-5 { color: #db2777; }
+.home-workspace-text.workspace-color-6 { color: #ea580c; }
+.home-title-cursor {
+  display: inline-block;
+  width: 3px;
+  height: .84em;
+  margin-left: 3px;
+  vertical-align: -.06em;
+  background: var(--gold);
+  animation: homeCursorBlink .75s step-end infinite;
+}
 
 .home-hero-divider {
   display: flex;
@@ -3179,12 +3320,38 @@ mark.dt-highlight {
 .home-hero-divider .material-icons-round { font-size: 18px; }
 
 .home-hero-company {
+  position: relative;
+  display: inline-block;
   font-family: 'Montserrat', sans-serif;
+  font-style: normal;
   font-weight: 700;
-  font-size: 21px;
-  letter-spacing: .3px;
+  font-size: 20px;
+  letter-spacing: .45px;
   color: var(--gold-dark);
   margin-bottom: 36px;
+  padding: 13px 22px;
+  border-radius: 16px;
+  background: #f3efe6;
+  box-shadow:
+    7px 7px 15px rgba(178, 165, 130, .34),
+    -7px -7px 15px rgba(255, 255, 255, .9),
+    inset 1px 1px 2px rgba(255, 255, 255, .72),
+    inset -1px -1px 2px rgba(178, 165, 130, .16);
+}
+.home-hero-company::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold), var(--gold-dark), var(--navy-deep), var(--gold-dark), var(--gold));
+  background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: homeWelcomeBorderShift 6s linear infinite;
+  pointer-events: none;
 }
 
 .home-welcome-card {
@@ -3224,7 +3391,8 @@ mark.dt-highlight {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-welcome-card::after {
+  .home-welcome-card::after,
+  .home-hero-company::after {
     animation: none;
   }
 }
@@ -3355,7 +3523,7 @@ mark.dt-highlight {
 
 @media (max-width: 700px) {
   .home-hero { padding: 40px 24px; min-height: 520px; }
-  .home-hero-title { font-size: 32px; }
+  .home-hero-title { font-size: 44px; }
   .home-hero-eyebrow { font-size: 30px; }
   .home-welcome-card { flex-direction: column; padding: 26px; }
   .home-welcome-corner { width: 16px; height: 16px; }
