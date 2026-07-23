@@ -25,7 +25,7 @@
   --sidebar-text-active: #ffffff;
   --sidebar-glow:      rgba(37,99,235,0.35);
   --sidebar-width: 64px;
-  --body-bg:       #f5f7fb;
+  --body-bg:       #faf3ea;
   --card-bg:       #ffffff;
   --border:        #e2e8f0;
   --text-main:     #1e293b;
@@ -4272,6 +4272,7 @@ select.po-input {
 }
 .topbar-user:focus-visible { outline: 2px solid #ff554f; outline-offset: 3px; }
 .topbar-avatar { border-radius: 0; background: #111111; color: #ffe500; box-shadow: none; }
+.topbar-avatar-img { border-radius: 0; }
 .topbar-user:hover .topbar-avatar { box-shadow: none; }
 .topbar-username { color: #111111; font-weight: 900; }
 .topbar-user-caret { color: #111111; }
