@@ -855,6 +855,12 @@ function esc(str) {
 // ---------------------------------------------------------------------------
 // Load dropdown data
 // ---------------------------------------------------------------------------
+// Populated once fetchDropdowns() succeeds. Declared up front (instead of
+// only being created as an implicit global inside fetchDropdowns' success
+// handler) so dropdowns can be mounted — and made clickable — immediately
+// at page load, before the server has responded.
+var dropdownData = {};
+
 function fetchDropdowns() {
     showSpinner('Loading dropdown data…');
 
@@ -888,11 +894,17 @@ function mountDropdown(fieldId, options, placeholder) {
     var wrapper = document.querySelector('[data-dropdown="' + fieldId + '"]');
     if (!wrapper) return;
 
+    // Already mounted (this is the server-data-arrived call, after the
+    // click-handlers were already attached at page-load time below) — just
+    // refresh the option list in place, don't re-bind listeners.
+    if (wrapper._dd) { wrapper._dd.setOptions(options || []); return; }
+
     var trigger = wrapper.querySelector('.dropdown-trigger');
     var search  = wrapper.querySelector('.dropdown-search');
     var list    = wrapper.querySelector('.dropdown-list');
     var hidden  = document.getElementById('hidden-' + fieldId);
     var current = '';
+    options = options || [];
 
     function render(filter) {
     list.innerHTML = '';
@@ -902,7 +914,7 @@ function mountDropdown(fieldId, options, placeholder) {
     if (!items.length) {
         var no = document.createElement('div');
         no.className = 'dropdown-option no-match';
-        no.textContent = 'No results found';
+        no.textContent = options.length ? 'No results found' : 'Loading options…';
         list.appendChild(no);
         return;
     }
@@ -949,6 +961,13 @@ function mountDropdown(fieldId, options, placeholder) {
         trigger.textContent = placeholder;
         trigger.classList.add('placeholder-active');
         if (hidden) hidden.value = '';
+    },
+    // Lets fetchDropdowns() hand over the real option list once it arrives
+    // (possibly seconds after the click-handler was already attached),
+    // without ever needing to re-bind the click/search listeners.
+    setOptions: function (newOptions) {
+        options = newOptions || [];
+        if (wrapper.classList.contains('open')) render(search.value);
     }
     };
 }
@@ -8292,6 +8311,7 @@ function init() {
     var resetBtn = document.getElementById('reset-btn');
     if (resetBtn) resetBtn.addEventListener('click', function (e) { e.preventDefault(); resetForm(); });
 
+    initAllDropdowns();
     fetchDropdowns();
     initPdfPage();
     initPdfEdgePaintTable();
