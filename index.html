@@ -275,9 +275,27 @@
             </div>
           </div>
         </div>
-        <div class="topbar-bell" title="Notifications">
-          <span class="material-icons-round" style="font-size:24px;">notifications</span>
-          <span class="badge">3</span>
+        <div class="topbar-notif-wrap" id="topbar-notif-wrap">
+          <button type="button" class="topbar-notif-btn" id="topbar-notif-btn" title="Notifications" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+            <span class="material-icons-round" style="font-size:22px;">notifications</span>
+            <span class="topbar-notif-badge" id="topbar-notif-badge" hidden>0</span>
+          </button>
+          <div class="topbar-notif-panel" id="topbar-notif-panel" hidden>
+            <div class="notif-panel-head">
+              <span class="notif-panel-title">Notifications</span>
+              <div class="notif-panel-head-right">
+                <button type="button" class="notif-mark-all-btn" id="notif-mark-all-read" hidden>
+                  <span class="material-icons-round" style="font-size:14px;">done_all</span>Mark all as read
+                </button>
+                <span class="notif-live-badge" title="Checks for new notifications automatically">
+                  <span class="notif-live-dot"></span>Live
+                </span>
+              </div>
+            </div>
+            <div class="notif-list" id="notif-list">
+              <div class="notif-empty" id="notif-empty">No notifications yet.</div>
+            </div>
+          </div>
         </div>
         <div class="topbar-user" id="topbar-user" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
           <div class="topbar-avatar" id="topbar-avatar">
