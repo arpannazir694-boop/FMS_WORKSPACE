@@ -510,9 +510,259 @@ function initBirthdayCelebration() {
 }
 
 // ---------------------------------------------------------------------------
-// State
+// Real-time Notifications
 // ---------------------------------------------------------------------------
-var dropdownData = {};
+// How it works:
+//  - Code.gs's "NOTIFICATIONS" sheet is an append-only log: column A is the
+//    message text (typed directly into the sheet — nothing else to do),
+//    column B is a timestamp the server fills in automatically.
+//  - This client polls getNotifications() every NOTIF_POLL_MS.
+//  - "Read" is tracked per-username in localStorage as a SET of notification
+//    ids (not just a high-water-mark), because it's now explicit: a
+//    notification stays unread — red dot, red blinking bell badge — until
+//    the user actually marks it read. Just opening/closing the dropdown does
+//    NOT mark anything read anymore.
+//  - Two ways to mark read: click the small check on an individual item, or
+//    "Mark all as read" in the panel header.
+//  - The moment a notification is first spotted in this browser tab, it
+//    also pops a toast (real-time push feel) and gives the bell a little
+//    shake — but only once per notification per page load.
+// ---------------------------------------------------------------------------
+var NOTIF_POLL_MS = 8000; // ~real-time without hammering the sheet
+var notifState = { items: [], readIds: {}, notifiedIds: {} };
+var NOTIF_MAX_STORED_READ_IDS = 1000; // trim so localStorage never grows unbounded
+
+function notifReadKey_(user) {
+    return 'fms_notif_read_' + String(user || '').trim().toLowerCase();
+}
+function loadReadIds_(user) {
+    var map = {};
+    try {
+        var raw = JSON.parse(localStorage.getItem(notifReadKey_(user)) || '[]');
+        // Ignore legacy numeric row IDs. Rows can be deleted and reused, so
+        // only a server-generated permanent ID is valid here.
+        if (Array.isArray(raw)) raw.forEach(function (id) {
+            if (typeof id === 'string' && id.trim()) map[id] = true;
+        });
+    } catch (e) {}
+    return map;
+}
+function saveReadIds_(user) {
+    try {
+        var ids = Object.keys(notifState.readIds).sort();
+        if (ids.length > NOTIF_MAX_STORED_READ_IDS) ids = ids.slice(ids.length - NOTIF_MAX_STORED_READ_IDS);
+        localStorage.setItem(notifReadKey_(user), JSON.stringify(ids));
+    } catch (e) {}
+}
+function isNotifRead_(id) {
+    return !!notifState.readIds[id];
+}
+
+function getUnreadNotificationCount_() {
+    return notifState.items.reduce(function (count, notification) {
+        return count + (isNotifRead_(notification.id) ? 0 : 1);
+    }, 0);
+}
+
+function timeAgo_(isoString) {
+    var then = new Date(isoString).getTime();
+    if (isNaN(then)) return '';
+    var diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
+    if (diffSec < 45) return 'Just now';
+    var diffMin = Math.round(diffSec / 60);
+    if (diffMin < 60) return diffMin + 'm ago';
+    var diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return diffHr + 'h ago';
+    var diffDay = Math.round(diffHr / 24);
+    if (diffDay < 7) return diffDay + 'd ago';
+    var d = new Date(isoString);
+    return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
+}
+
+function renderNotificationList_() {
+    var list = document.getElementById('notif-list');
+    var empty = document.getElementById('notif-empty');
+    var markAllBtn = document.getElementById('notif-mark-all-read');
+    if (!list) return;
+
+    if (!notifState.items.length) {
+        list.innerHTML = '';
+        list.appendChild(empty || document.createTextNode('No notifications yet.'));
+        if (markAllBtn) markAllBtn.hidden = true;
+        return;
+    }
+
+    var anyUnread = false;
+    list.innerHTML = notifState.items.map(function (n) {
+        var unread = !isNotifRead_(n.id);
+        if (unread) anyUnread = true;
+        return '<div class="notif-item' + (unread ? ' notif-unread' : '') + '" data-id="' + esc(n.id) + '">' +
+            '<span class="notif-item-dot" title="' + (unread ? 'Unread' : 'Read') + '"></span>' +
+            '<div class="notif-item-body">' +
+                '<div class="notif-item-msg">' + esc(n.message) + '</div>' +
+                '<div class="notif-item-time">' + esc(timeAgo_(n.timestamp)) + '</div>' +
+            '</div>' +
+            (unread ? '<button type="button" class="notif-mark-read-btn" data-mark-id="' + esc(n.id) + '" title="Mark as read" aria-label="Mark as read">' +
+                '<span class="material-icons-round" style="font-size:15px;">done</span>' +
+            '</button>' : '') +
+        '</div>';
+    }).join('');
+
+    if (markAllBtn) markAllBtn.hidden = !anyUnread;
+}
+
+function updateNotifBadge_() {
+    var badge = document.getElementById('topbar-notif-badge');
+    var markAllBtn = document.getElementById('notif-mark-all-read');
+    var bellButton = document.getElementById('topbar-notif-btn');
+    var unreadCount = getUnreadNotificationCount_();
+
+    // Both controls reflect the exact same unread count. Keeping this in one
+    // function prevents the bell and the panel action from falling out of sync.
+    if (badge && unreadCount > 0) {
+        badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+        badge.hidden = false;
+        badge.setAttribute('aria-label', unreadCount + ' unread notifications');
+    } else if (badge) {
+        badge.hidden = true;
+        badge.removeAttribute('aria-label');
+    }
+    if (markAllBtn) markAllBtn.hidden = unreadCount === 0;
+    if (bellButton) bellButton.classList.toggle('has-unread-notifications', unreadCount > 0);
+}
+
+function refreshNotificationUi_() {
+    renderNotificationList_();
+    updateNotifBadge_();
+}
+
+function markNotificationRead_(user, id) {
+    if (notifState.readIds[id]) return;
+    notifState.readIds[id] = true;
+    saveReadIds_(user);
+    refreshNotificationUi_();
+}
+
+function markAllNotificationsRead_(user) {
+    var changed = false;
+    notifState.items.forEach(function (n) {
+        if (!notifState.readIds[n.id]) { notifState.readIds[n.id] = true; changed = true; }
+    });
+    if (changed) saveReadIds_(user);
+    refreshNotificationUi_();
+}
+
+function handleNotificationResult_(result, user) {
+    if (!result || !result.success || !Array.isArray(result.notifications)) return;
+    var seenIds = {};
+    var items = result.notifications.filter(function (notification) {
+        var id = String(notification && notification.id || '').trim();
+        if (!id || seenIds[id]) return false;
+        seenIds[id] = true;
+        notification.id = id;
+        return true;
+    });
+
+    // Real-time push: toast + bell shake for anything newer than the last
+    // one we've already notified about in THIS page session.
+    var hasNewNotification = false;
+    items.forEach(function (n) {
+        if (!notifState.notifiedIds[n.id]) {
+            notifState.notifiedIds[n.id] = true;
+            // A notification already marked read in an earlier login must
+            // never announce itself again after the user signs back in.
+            if (!isNotifRead_(n.id)) {
+                if (helpersShowToast_()) helpersShowToast_()('info', 'New Notification', n.message);
+                hasNewNotification = true;
+            }
+        }
+    });
+    if (hasNewNotification) {
+        var btn = document.getElementById('topbar-notif-btn');
+        if (btn) {
+            btn.classList.remove('notif-bell-ping');
+            // restart the animation even if it's already mid-run
+            void btn.offsetWidth;
+            btn.classList.add('notif-bell-ping');
+        }
+    }
+
+    notifState.items = items.slice().reverse(); // newest first in the list
+    refreshNotificationUi_();
+}
+
+function helpersShowToast_() {
+    return (typeof showToast === 'function') ? showToast : null;
+}
+
+function pollNotifications_(user) {
+    function onResult(result) { handleNotificationResult_(result, user); }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run.withSuccessHandler(onResult).withFailureHandler(function () {}).getNotifications();
+        return;
+    }
+    jsonp({ action: 'getNotifications' }, function (err, result) {
+        if (!err) onResult(result);
+    });
+}
+
+function initNotifications() {
+    var user = getSession();
+    notifState.readIds = loadReadIds_(user);
+    notifState.notifiedIds = {}; // page-session-only de-dupe for the toast/shake, unrelated to read state
+
+    var wrap = document.getElementById('topbar-notif-wrap');
+    var btn = document.getElementById('topbar-notif-btn');
+    var panel = document.getElementById('topbar-notif-panel');
+    var list = document.getElementById('notif-list');
+    var markAllBtn = document.getElementById('notif-mark-all-read');
+    if (!wrap || !btn || !panel) return;
+
+    function open() {
+        panel.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        refreshNotificationUi_();
+    }
+    function close() {
+        if (panel.hidden) return;
+        panel.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (panel.hidden) open(); else close();
+    });
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('click', function () { close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    btn.addEventListener('animationend', function () { btn.classList.remove('notif-bell-ping'); });
+
+    if (list) {
+        list.addEventListener('click', function (e) {
+            var markBtn = e.target.closest ? e.target.closest('.notif-mark-read-btn') : null;
+            if (markBtn) {
+                e.stopPropagation();
+                markNotificationRead_(user, markBtn.getAttribute('data-mark-id'));
+                return;
+            }
+            // Clicking anywhere else on an unread item also marks it read.
+            var item = e.target.closest ? e.target.closest('.notif-item') : null;
+            if (item) markNotificationRead_(user, item.getAttribute('data-id'));
+        });
+    }
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            markAllNotificationsRead_(user);
+        });
+    }
+
+    pollNotifications_(user);
+    setInterval(function () { pollNotifications_(user); }, NOTIF_POLL_MS);
+}
+
+
 var currentCuttingQty = null;   // set when a cutting-details match is found
 
 // ---------------------------------------------------------------------------
@@ -8024,6 +8274,7 @@ function init() {
     initProfileMenu();
     initProfilePhoto();
     initTopbarCalendar();
+    initNotifications();
     initBirthdayCelebration();
     initNav();
     initSidebarCustomization();
