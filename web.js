@@ -495,10 +495,11 @@
         { key: 'brand',               label: 'Brand',            pdfWidth: 81 },
         { key: 'sku',                 label: 'SKU',              pdfWidth: 81 },
         { key: 'style',               label: 'Style',            pdfWidth: 81 },
-        { key: 'colour',              label: 'Colour',           pdfWidth: 62 },
+        { key: 'colour',              label: 'Colour',           pdfWidth: 85 },
         { key: 'quantity',            label: 'Quantity',         pdfWidth: 62, halign: 'right' },
         { key: 'etd',                 label: 'ETD',              pdfWidth: 73 },
-        { key: 'floorSupervisorName', label: 'Floor Supervisor', pdfWidth: 101 },
+        { key: 'fabricatorName',      label: 'Fabricator Name',  pdfWidth: 90 },
+        { key: 'floorSupervisorName', label: 'Floor Supervisor', pdfWidth: 130 },
         { key: 'inlineQcName',        label: 'In-Line QC',       pdfWidth: 101 },
         { key: 'followUpRemarks',     label: 'Follow-Up Remarks', pdfWidth: 150 }
     ];
@@ -910,7 +911,7 @@
                 tableWidth: usableWidth,
                 styles: {
                     font: fontFamily,
-                    fontSize: 8.5,
+                    fontSize: 7.5,
                     cellPadding: 5,
                     overflow: 'linebreak',
                     lineColor: PDF_COLORS.border,
