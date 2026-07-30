@@ -3096,6 +3096,15 @@ html, body {
   word-break: normal;
 }
 
+/* Submitted FMS Data (Reports) — keep every cell on a single line (no text
+   wrapping); the table scrolls horizontally instead via .dt-table-wrap. */
+#fms-data-table .dt-td {
+  white-space: nowrap;
+  max-width: none;
+  overflow: visible;
+  word-break: normal;
+}
+
 td.dt-col-wide {
   min-width: 420px;
   max-width: 700px;
@@ -4228,12 +4237,24 @@ select.po-input {
   gap: 16px;
 }
 .topbar-title {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  flex: 0 1 auto;
+  width: fit-content;
   color: #eafdf9;
   font-weight: 700;
   letter-spacing: -.3px;
   text-shadow: none;
+  padding: 9px 20px;
+  border-radius: 14px;
+  background: linear-gradient(150deg, #226e76 0%, #123f44 100%);
+  box-shadow:
+    5px 5px 11px rgba(2,14,16,.45),
+    -3px -3px 9px rgba(255,255,255,.05),
+    inset 0 1px 1px rgba(255,255,255,.08);
 }
-.topbar-actions { gap: 12px; }
+.topbar-actions { gap: 12px; margin-left: auto; }
 .topbar-calendar-btn,
 .topbar-notif-btn {
   border: none;
