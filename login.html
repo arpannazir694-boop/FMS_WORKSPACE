@@ -175,6 +175,7 @@
 
   var GAS_URL     = 'https://script.google.com/macros/s/AKfycbx99oNMmHYn-jum8NEtkUFqYmR3nV0reWfL1MYC7GDeRxQJu-BbKJq56KW1KcmUoCjRNA/exec';
   var SESSION_KEY = 'fms_user';
+  var ACCESS_KEY  = 'fms_access'; // JSON array of tab names this user is allowed to open
   var MAIN_PAGE   = 'index.html';
 
   var form        = document.getElementById('login-form');
@@ -302,10 +303,16 @@
     document.head.appendChild(script);
   }
 
-  function onLoginSuccess(username) {
+  function onLoginSuccess(username, access) {
     try {
       sessionStorage.setItem(SESSION_KEY, username);
-      if (rememberMe && rememberMe.checked) localStorage.setItem(SESSION_KEY, username);
+      sessionStorage.setItem(ACCESS_KEY, JSON.stringify(access || []));
+      if (rememberMe && rememberMe.checked) {
+        localStorage.setItem(SESSION_KEY, username);
+        localStorage.setItem(ACCESS_KEY, JSON.stringify(access || []));
+      } else {
+        localStorage.removeItem(ACCESS_KEY);
+      }
     } catch (e) {}
     successOvl.classList.add('visible');
     setTimeout(goToMainPage, 1600);
@@ -324,7 +331,7 @@
       google.script.run
         .withSuccessHandler(function (result) {
           setLoading(false);
-          if (result && result.success) onLoginSuccess(result.username || username);
+          if (result && result.success) onLoginSuccess(result.username || username, result.access);
           else showAlert((result && result.error) || 'Invalid username or password.');
         })
         .withFailureHandler(function (err) { setLoading(false); showAlert(err.message || 'Login failed.'); })
@@ -333,7 +340,7 @@
       jsonp({ action: 'validateLogin', username: username, password: password }, function (err, result) {
         setLoading(false);
         if (err) { showAlert(err.message); return; }
-        if (result && result.success) onLoginSuccess(result.username || username);
+        if (result && result.success) onLoginSuccess(result.username || username, result.access);
         else showAlert((result && result.error) || 'Invalid username or password.');
       });
     }
@@ -350,6 +357,8 @@
     var lsUser = localStorage.getItem(SESSION_KEY);
     if (lsUser) {
       sessionStorage.setItem(SESSION_KEY, lsUser);
+      var lsAccess = localStorage.getItem(ACCESS_KEY);
+      if (lsAccess) sessionStorage.setItem(ACCESS_KEY, lsAccess);
       goToMainPage();
     }
   } catch (e) {}
