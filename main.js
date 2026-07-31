@@ -2492,8 +2492,8 @@ function getOtLeaveConfig(type) {
     if (type === 'ot-details') {
         return {
             prefix: 'ot-details', viewId: 'ot-details-view', action: 'getOtDetailsData',
-            label: 'OT Details', emptyLabel: 'OT Details',
-            excelSheetName: 'OT Details', excelFilePrefix: 'OT_Details'
+            label: 'Additional Work Details', emptyLabel: 'Additional Work Details',
+            excelSheetName: 'Additional Work Details', excelFilePrefix: 'Additional_Work_Details'
         };
     }
     if (type === 'leave-details') {
@@ -2505,8 +2505,8 @@ function getOtLeaveConfig(type) {
     }
     return {
         prefix: 'ot-leave-analysis', viewId: 'ot-leave-analysis-view', action: 'getOtLeaveAnalysisData',
-        label: 'OT & Leave Analysis', emptyLabel: 'OT & Leave Analysis',
-        excelSheetName: 'OT & Leave Analysis', excelFilePrefix: 'OT_Leave_Analysis'
+        label: 'Additional Work & Leave Analysis', emptyLabel: 'Additional Work & Leave Analysis',
+        excelSheetName: 'Additional Work & Leave Analysis', excelFilePrefix: 'Additional_Work_Leave_Analysis'
     };
 }
 
@@ -2556,14 +2556,14 @@ function fetchOtLeaveData(type) {
 
     fetch(OT_LEAVE_URL + '?action=' + encodeURIComponent(config.action) + '&_=' + Date.now())
         .then(function (response) {
-            if (!response.ok) throw new Error('The OT & Leave server returned HTTP ' + response.status + '.');
+            if (!response.ok) throw new Error('The Additional Work & Leave server returned HTTP ' + response.status + '.');
             return response.json();
         })
         .then(function (result) {
             hideSpinner();
             if (!result || !result.success) throw new Error((result && result.error) || 'Could not load data.');
             if (!Array.isArray(result.headers) || !Array.isArray(result.rows)) {
-                throw new Error('The OT & Leave web app needs to be redeployed with the latest OT.gs code.');
+                throw new Error('The Additional Work & Leave web app needs to be redeployed with the latest OT.gs code.');
             }
             onOtLeaveDataLoaded(type, result);
         })
