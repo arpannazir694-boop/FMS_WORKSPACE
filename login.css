@@ -7,9 +7,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --blue:        #0b1f4d;
-  --blue-dark:   #071735;
-  --blue-light:  #14346f;
+  --blue:        #051946;
+  --blue-dark:   #031330;
+  --blue-light:  #0a2454;
   --blue-xlight: #dbe6ff;
   --white:       #ffffff;
   --bg:          #e8edf7;
@@ -19,7 +19,7 @@
   --error:       #ef4444;
   --radius-card: 24px;
   --radius-inp:  12px;
-  --shadow-card: 0 24px 64px rgba(11,31,77,.16), 0 4px 16px rgba(0,0,0,.08);
+  --shadow-card: 0 24px 64px rgba(5,25,70,.16), 0 4px 16px rgba(0,0,0,.08);
 }
 
 html, body {
@@ -45,7 +45,7 @@ html, body {
   position: absolute;
   width: 340px; height: 340px;
   border-radius: 50%;
-  background: rgba(11,31,77,.08);
+  background: rgba(5,25,70,.08);
   top: -100px; left: -100px;
 }
 
@@ -54,7 +54,7 @@ html, body {
   position: absolute;
   width: 260px; height: 260px;
   border-radius: 50%;
-  background: rgba(11,31,77,.06);
+  background: rgba(5,25,70,.06);
   bottom: -80px; right: -60px;
 }
 
@@ -174,7 +174,7 @@ html, body {
   flex: 0 0 500px;
   width: 500px;
   align-self: stretch;
-  background: #071735;
+  background: #031330;
   position: relative;
   overflow: hidden;
 }
@@ -303,7 +303,7 @@ html, body {
 
 .login-input:focus {
   border-color: var(--blue);
-  box-shadow: 0 0 0 3.5px rgba(11,31,77,.13);
+  box-shadow: 0 0 0 3.5px rgba(5,25,70,.13);
   background: var(--white);
 }
 
@@ -410,7 +410,7 @@ html, body {
 .forgot-modal {
   position: fixed;
   inset: 0;
-  background: rgba(15,23,42,.42);
+  background: rgba(11,19,37,.42);
   display: none;
   align-items: center;
   justify-content: center;
@@ -429,7 +429,7 @@ html, body {
   background: #ffffff;
   border: 1px solid #dbe3ef;
   border-radius: 22px;
-  box-shadow: 0 24px 70px rgba(11,31,77,.24);
+  box-shadow: 0 24px 70px rgba(5,25,70,.24);
   padding: 30px 28px 26px;
   position: relative;
   text-align: center;
@@ -474,7 +474,7 @@ html, body {
   align-items: center;
   justify-content: center;
   margin: 0 auto 18px;
-  box-shadow: 0 12px 24px rgba(11,31,77,.22);
+  box-shadow: 0 12px 24px rgba(5,25,70,.22);
 }
 
 .forgot-modal-icon .material-icons-round {
@@ -531,7 +531,7 @@ html, body {
   font-weight: 700;
   cursor: pointer;
   transition: background .16s, transform .16s, box-shadow .16s;
-  box-shadow: 0 8px 20px rgba(11,31,77,.24);
+  box-shadow: 0 8px 20px rgba(5,25,70,.24);
 }
 
 .forgot-modal-action:hover,
@@ -564,7 +564,7 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 18px rgba(11,31,77,.36);
+  box-shadow: 0 4px 18px rgba(5,25,70,.36);
   transition: background .18s, transform .18s, box-shadow .18s;
   letter-spacing: .15px;
   margin-top: 4px;
@@ -573,10 +573,10 @@ html, body {
 .btn-login:hover {
   background: var(--blue-dark);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(11,31,77,.38);
+  box-shadow: 0 8px 24px rgba(5,25,70,.38);
 }
 
-.btn-login:active { transform: translateY(0); box-shadow: 0 3px 10px rgba(11,31,77,.30); }
+.btn-login:active { transform: translateY(0); box-shadow: 0 3px 10px rgba(5,25,70,.30); }
 
 .btn-login:disabled {
   opacity: .7;
