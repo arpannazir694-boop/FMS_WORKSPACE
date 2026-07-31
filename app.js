@@ -20,6 +20,7 @@ var PURCHASE_URL = 'https://script.google.com/macros/s/AKfycbwjHUTJKOh3_P0mXD1Kk
 // Session — read logged-in user from sessionStorage (set by login.html)
 // ---------------------------------------------------------------------------
 var SESSION_KEY = 'fms_user';
+var ACCESS_KEY  = 'fms_access'; // JSON array of tab names this user is allowed to open (set by login.html)
 
 function getSession() {
     try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; }
@@ -28,6 +29,30 @@ function getSession() {
 function clearSession() {
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(ACCESS_KEY); } catch (e) {}
+    try { localStorage.removeItem(ACCESS_KEY); } catch (e) {}
+}
+
+// Admin-controlled tab access (USERS sheet, Column I) — an array of tab
+// names such as ["Dashboard", "Reports", "PDF"]. Returns [] if unset.
+function getAccess() {
+    try {
+        var raw = sessionStorage.getItem(ACCESS_KEY) || localStorage.getItem(ACCESS_KEY);
+        if (!raw) return [];
+        var arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+}
+
+// Overwrites the stored access list (used by the silent poller below).
+// Mirrors it into whichever storage currently holds the session — if
+// "Remember Me" was used (localStorage has the session), keep both in sync.
+function setAccess(access) {
+    var json = JSON.stringify(Array.isArray(access) ? access : []);
+    try { sessionStorage.setItem(ACCESS_KEY, json); } catch (e) {}
+    try {
+        if (localStorage.getItem(SESSION_KEY)) localStorage.setItem(ACCESS_KEY, json);
+    } catch (e) {}
 }
 
 function getLoginUrl() {
@@ -1316,7 +1341,7 @@ function resetForm() {
 // ---------------------------------------------------------------------------
 function initNav() {
     document.querySelectorAll('.nav-item[data-page]').forEach(function (item) {
-    item.addEventListener('click', function () {
+    item.addEventListener('click', function (evt) {
         var page = item.getAttribute('data-page');
         if (!page) return;
         document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
@@ -1326,6 +1351,20 @@ function initNav() {
         if (target) target.style.display = '';
         var titleEl = document.getElementById('topbar-title');
         if (titleEl) titleEl.textContent = item.getAttribute('data-title') || 'FMS FORM';
+
+        // Admin-controlled access check — if the user isn't permitted on this
+        // tab, show the warning card instead of the tab's real content and
+        // skip all the below content-loading logic entirely. Some tabs
+        // (Warehouse, Machine, OT & Leave, Purchase) have a SECOND click
+        // listener bound in main.js that resets them to their own KPI view —
+        // stopImmediatePropagation() keeps that second listener from
+        // re-revealing content underneath the warning card.
+        if (!hasPageAccess(page)) {
+        if (target) showAccessDeniedCard(target, accessDeniedLabelFor_(page));
+        if (evt && evt.stopImmediatePropagation) evt.stopImmediatePropagation();
+        return;
+        }
+        if (target) hideAccessDeniedCard(target);
 
         // Replay the welcome hero animation each time Home is opened
         if (page === 'home') {
@@ -1452,7 +1491,7 @@ var ALL_NAV_ITEMS = [
     { page: 'pdf',            label: 'PDF',                 icon: 'picture_as_pdf',           defaultOn: true },
     { page: 'warehouse',      label: 'Warehouse',           icon: 'warehouse',                defaultOn: false },
     { page: 'machine',        label: 'Machine',             icon: 'precision_manufacturing',  defaultOn: false },
-    { page: 'ot-leave',       label: 'OT & Leave',          icon: 'event_available',          defaultOn: false },
+    { page: 'ot-leave',       label: 'Additional Work & Leave', icon: 'event_available',      defaultOn: false },
     { page: 'purchase',       label: 'Purchase',            icon: 'request_quote',            defaultOn: false },
     { page: 'store',          label: 'Store',               icon: 'storefront',               defaultOn: false },
     { page: 'maintenance',    label: 'Maintenance',         icon: 'build',                    defaultOn: false },
@@ -1463,6 +1502,171 @@ var ALL_NAV_ITEMS = [
 function defaultEnabledPages() {
     return ALL_NAV_ITEMS.filter(function (item) { return item.defaultOn; })
                          .map(function (item) { return item.page; });
+}
+
+// ---------------------------------------------------------------------------
+// Admin-controlled tab access (separate from the personal sidebar prefs
+// above). Driven by the USERS sheet Column I dropdown, delivered at login as
+// getAccess() (an array of tab NAMES, e.g. "Reports", "PDF"). We match those
+// names against ALL_NAV_ITEMS labels (case-insensitive) to know which
+// data-page keys the current user is allowed to open. 'home' and 'settings'
+// are core pages and are always allowed.
+// ---------------------------------------------------------------------------
+var ACCESS_LABEL_TO_PAGE = {};
+ALL_NAV_ITEMS.forEach(function (item) {
+    ACCESS_LABEL_TO_PAGE[item.label.trim().toLowerCase()] = item.page;
+});
+var ACCESS_ALWAYS_ALLOWED_PAGES = ['home', 'settings'];
+
+// Set of page keys the current user is allowed to open, derived from
+// getAccess(). Recomputed on demand so it always reflects the latest login.
+function getAllowedPageSet_() {
+    var set = {};
+    getAccess().forEach(function (label) {
+        var key = ACCESS_LABEL_TO_PAGE[String(label).trim().toLowerCase()];
+        if (key) set[key] = true;
+    });
+    return set;
+}
+
+function hasPageAccess(page) {
+    if (ACCESS_ALWAYS_ALLOWED_PAGES.indexOf(page) !== -1) return true;
+    // Pages outside ALL_NAV_ITEMS (none currently) are treated as unrestricted.
+    var isGated = ALL_NAV_ITEMS.some(function (item) { return item.page === page; });
+    if (!isGated) return true;
+    return !!getAllowedPageSet_()[page];
+}
+
+function accessDeniedLabelFor_(page) {
+    var item = ALL_NAV_ITEMS.filter(function (i) { return i.page === page; })[0];
+    return item ? item.label : 'this tab';
+}
+
+// Shows a "no access" warning card inside the given page-view element,
+// hiding whatever real content it contains without altering the DOM
+// structure. Each child's PRE-EXISTING display value is remembered (via a
+// data attribute) before being overwritten, so hideAccessDeniedCard() below
+// can restore it exactly — this matters for pages like Forma & Dice Form
+// that already toggle their own children's display internally (picker cards
+// vs. the chosen sub-form), so we never clobber that state.
+function showAccessDeniedCard(pageView, label) {
+    if (!pageView) return;
+    Array.prototype.forEach.call(pageView.children, function (child) {
+        if (child.classList.contains('access-denied-card')) return;
+        if (child.getAttribute('data-access-prev-display') === null) {
+            child.setAttribute('data-access-prev-display', child.style.display || '');
+        }
+        child.style.display = 'none';
+    });
+    var card = pageView.querySelector('.access-denied-card');
+    if (!card) {
+        card = document.createElement('div');
+        card.className = 'access-denied-card';
+        card.innerHTML =
+            '<div class="access-denied-glow"></div>' +
+            '<div class="access-denied-illustration"><img src="https://res.cloudinary.com/dnrgcigsj/image/upload/v1785485708/ChatGPT_Image_Jul_31_2026_01_44_11_PM_mvagd5.png" alt="" /></div>' +
+            '<div class="access-denied-title">Access Restricted</div>' +
+            '<div class="access-denied-text">You don\'t have access to <strong class="access-denied-tab-name"></strong> yet.</div>' +
+            '<div class="access-denied-note"><span class="material-icons-round">support_agent</span><span>Please contact your admin to request access to this tab.</span></div>';
+        pageView.appendChild(card);
+    }
+    var nameEl = card.querySelector('.access-denied-tab-name');
+    if (nameEl) nameEl.textContent = label;
+    card.style.display = 'flex';
+    pageView.setAttribute('data-access-denied', '1');
+}
+
+// No-ops on any page-view that was never put into the denied state (the
+// common case — most nav clicks land on pages the user always had access
+// to), so it never touches those pages' own internal show/hide logic.
+function hideAccessDeniedCard(pageView) {
+    if (!pageView) return;
+    if (pageView.getAttribute('data-access-denied') !== '1') return;
+    var card = pageView.querySelector('.access-denied-card');
+    if (card) card.style.display = 'none';
+    Array.prototype.forEach.call(pageView.children, function (child) {
+        if (child.classList.contains('access-denied-card')) return;
+        var prev = child.getAttribute('data-access-prev-display');
+        child.style.display = prev || '';
+        child.removeAttribute('data-access-prev-display');
+    });
+    pageView.removeAttribute('data-access-denied');
+}
+
+// Re-runs the same "reset to KPI view" a fresh nav click would trigger, for
+// tabs that keep that logic in main.js rather than app.js. Called only when
+// access is silently GRANTED mid-session, so the tab lands on its normal
+// landing view instead of staying blank.
+function resetPageToLandingView_(page) {
+    if (page === 'reports' && typeof showReportsKpiView === 'function') showReportsKpiView();
+    if (page === 'batch-list' && typeof showBatchListKpiView === 'function') showBatchListKpiView();
+    if (page === 'pdf' && typeof showPdfKpiView === 'function') showPdfKpiView();
+    if (page === 'store' && typeof showStoreKpiView === 'function') showStoreKpiView();
+    if (page === 'warehouse' && typeof showWarehouseSectionKpiView === 'function') showWarehouseSectionKpiView();
+    if (page === 'machine' && typeof showMachineKpiView === 'function') showMachineKpiView();
+    if (page === 'ot-leave' && typeof showOtLeaveKpiView === 'function') showOtLeaveKpiView();
+    if (page === 'purchase' && typeof showPurchaseKpiView === 'function') showPurchaseKpiView();
+}
+
+// ---------------------------------------------------------------------------
+// Silent access polling — every ACCESS_POLL_MS, re-fetch this user's Column I
+// access list from the USERS sheet in the background and, if it changed,
+// update the stored list and quietly re-check whatever tab is on screen
+// right now (no page reload, no toast, no interruption). This means an
+// admin changing a user's tab access takes effect within a few seconds
+// without the user needing to log out/in again.
+// ---------------------------------------------------------------------------
+var ACCESS_POLL_MS = 5000;
+
+function accessListsEqual_(a, b) {
+    var sa = (a || []).slice().sort().join('\u0001');
+    var sb = (b || []).slice().sort().join('\u0001');
+    return sa === sb;
+}
+
+// Looks at whichever nav item is currently marked active and, if its access
+// status just flipped, silently shows/hides the warning card to match.
+function reEvaluateCurrentPageAccess_() {
+    var activeItem = document.querySelector('.nav-item.active[data-page]');
+    if (!activeItem) return;
+    var page = activeItem.getAttribute('data-page');
+    if (!page) return;
+    var target = document.getElementById('page-' + page);
+    if (!target) return;
+
+    var isShowingDenied = target.getAttribute('data-access-denied') === '1';
+    var nowAllowed = hasPageAccess(page);
+
+    if (nowAllowed && isShowingDenied) {
+        hideAccessDeniedCard(target);
+        resetPageToLandingView_(page);
+    } else if (!nowAllowed && !isShowingDenied) {
+        showAccessDeniedCard(target, accessDeniedLabelFor_(page));
+    }
+}
+
+function pollAccess_(user) {
+    if (!user) return;
+    function onResult(result) {
+        if (!result || !result.success || !Array.isArray(result.access)) return;
+        if (accessListsEqual_(result.access, getAccess())) return; // nothing changed, skip a no-op DOM pass
+        setAccess(result.access);
+        reEvaluateCurrentPageAccess_();
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run.withSuccessHandler(onResult).withFailureHandler(function () {}).getUserAccess(user);
+        return;
+    }
+    jsonp({ action: 'getUserAccess', username: user }, function (err, result) {
+        if (!err) onResult(result);
+    });
+}
+
+function initAccessPolling() {
+    var user = getSession();
+    if (!user) return;
+    pollAccess_(user);
+    setInterval(function () { pollAccess_(user); }, ACCESS_POLL_MS);
 }
 
 function sidebarPrefsKey() {
@@ -8296,6 +8500,7 @@ function init() {
     initNotifications();
     initBirthdayCelebration();
     initNav();
+    initAccessPolling();
     initSidebarCustomization();
     initHomeHero();
     initDiceFormaForms();
