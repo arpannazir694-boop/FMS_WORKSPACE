@@ -2006,30 +2006,45 @@ input, textarea, [contenteditable="true"] {
   margin: 32px auto;
   padding: 40px 48px 48px;
   max-width: 600px;
-  background: #f2e4d2;
-  border: none;
-  border-radius: 32px;
+  background:
+    radial-gradient(circle at 30% 15%, rgba(255,205,150,.18), transparent 55%),
+    repeating-linear-gradient(125deg, rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px, transparent 2px, transparent 5px),
+    linear-gradient(160deg, #8a5a35 0%, #6b3f22 48%, #46270f 100%);
+  border: 6px solid #5a3419;
+  border-radius: 26px;
   box-shadow:
-    12px 12px 28px rgba(150, 105, 60, .22),
-    -10px -10px 24px rgba(255, 250, 240, .85),
-    inset 2px 2px 6px rgba(255, 255, 255, .5),
-    inset -2px -2px 6px rgba(150, 105, 60, .12);
+    0 18px 30px rgba(20, 8, 2, .45),
+    0 3px 0 rgba(255, 210, 160, .18) inset,
+    0 -6px 14px rgba(0, 0, 0, .45) inset,
+    0 0 0 2px rgba(255, 205, 150, .12) inset;
   font-family: 'Poppins', sans-serif;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .access-denied-glow {
-  display: none;
+  display: block;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 46px;
+  background: radial-gradient(ellipse, rgba(255,225,180,.28), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .access-denied-illustration {
   position: relative;
+  z-index: 1;
   width: 460px;
   height: 460px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: -70px;
+  filter: drop-shadow(0 10px 14px rgba(20, 8, 2, .4));
 }
 
 .access-denied-illustration img {
@@ -2039,11 +2054,14 @@ input, textarea, [contenteditable="true"] {
 }
 
 .access-denied-title {
+  position: relative;
+  z-index: 1;
   font-size: 24px;
   font-weight: 800;
   letter-spacing: .1px;
   color: #dc2626;
   margin-top: 4px;
+  text-shadow: 0 1px 0 rgba(255, 210, 160, .35), 0 -1px 1px rgba(0, 0, 0, .55);
   animation: accessDeniedPulse 1.6s ease-in-out infinite;
 }
 
@@ -2053,31 +2071,40 @@ input, textarea, [contenteditable="true"] {
 }
 
 .access-denied-text {
+  position: relative;
+  z-index: 1;
   font-size: 16px;
   line-height: 1.65;
-  color: var(--text-sub);
+  color: rgba(255, 236, 220, .82);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
   max-width: 400px;
 }
 
 .access-denied-tab-name {
-  color: var(--text-main);
+  color: #ffdba3;
   font-weight: 700;
 }
 
 .access-denied-note {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 18px;
   padding: 12px 20px;
   border-radius: 999px;
-  background: #e9d5bc;
-  border: none;
-  box-shadow: inset 2px 2px 5px rgba(150, 105, 60, .18), inset -2px -2px 5px rgba(255, 255, 255, .5);
-  color: #8a4f1f;
+  background: linear-gradient(160deg, #a06c3f 0%, #6b3f22 100%);
+  border: 2px solid #4a2a16;
+  box-shadow:
+    0 6px 12px rgba(20, 8, 2, .4),
+    inset 0 1px 1px rgba(255, 220, 180, .35),
+    inset 0 -3px 6px rgba(0, 0, 0, .35);
+  color: #fff1de;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .4);
 }
 
 .access-denied-note .material-icons-round {
