@@ -565,6 +565,31 @@
         return naturalCompareUnit_(String((a && a.unit) || ''), String((b && b.unit) || ''));
     }
 
+    // Picks the right comparator for a given stage — mirrors
+    // compareForStage_/compareByField_ in PlannedDate.gs:
+    //   - "…_fs"  (Floor Supervisor stages)  -> sort A-Z by floorSupervisorName
+    //   - "…_qc"  (In-Line QC stages)        -> sort A-Z by inlineQcName
+    //   - everything else (End-Line QC, Edge-Paint, Pre-AQL, Post AQL,
+    //     Shipment) -> keep the original Unit-wise natural sort
+    function compareRecordsForStage_(stageKey) {
+        if (/_fs$/.test(stageKey)) return compareRecordsByField_('floorSupervisorName');
+        if (/_qc$/.test(stageKey)) return compareRecordsByField_('inlineQcName');
+        return compareRecordsByUnit_;
+    }
+
+    // Case-insensitive A-Z comparator for a given record field (e.g. Floor
+    // Supervisor Name / In-Line QC Name). Blank values sort last.
+    function compareRecordsByField_(field) {
+        return function (a, b) {
+            var av = String((a && a[field]) || '').trim();
+            var bv = String((b && b[field]) || '').trim();
+            if (av === '' && bv === '') return 0;
+            if (av === '') return 1;
+            if (bv === '') return -1;
+            return av.toLowerCase().localeCompare(bv.toLowerCase());
+        };
+    }
+
     function naturalCompareUnit_(a, b) {
         var re = /(\d+)|(\D+)/g;
         var aParts = String(a).match(re) || [];
@@ -657,7 +682,7 @@
                 result.stages.forEach(function (stage) {
                     if (!Array.isArray(stage.records)) return;
                     stage.records = stage.records.filter(function (record) { return !isExcludedUnit_(record && record.unit); });
-                    stage.records.sort(compareRecordsByUnit_);
+                    stage.records.sort(compareRecordsForStage_(stage.key));
                     stage.count = stage.records.length;
                 });
                 lastReport = { date: result.date || dateStr, stages: result.stages };
