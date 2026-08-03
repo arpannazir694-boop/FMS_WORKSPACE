@@ -26,6 +26,7 @@ var exportRowsToXlsx   = FMS.exportRowsToXlsx;
 var excelRowColor_     = FMS.excelRowColor_;
 var showBatchListKpiView = FMS.showBatchListKpiView;
 var currentSubmitter   = FMS.currentSubmitter;
+var applyKpiCardAccess = FMS.applyKpiCardAccess || function () {}; // per-KPI-card access guard (falls back to a no-op if app.js is stale)
 
 if (!jsonp || !exportRowsToXlsx || !showBatchListKpiView) {
     // app.js didn't expose window.FMS (e.g. an old cached app.js) — bail out
@@ -2522,6 +2523,7 @@ function showOtLeaveKpiView() {
         var view = document.getElementById(getOtLeaveConfig(type).viewId);
         if (view) view.style.display = 'none';
     });
+    applyKpiCardAccess();
 }
 
 function showOtLeaveDetailView(type) {
@@ -3182,6 +3184,7 @@ function showPurchaseKpiView() {
         var view = document.getElementById(id);
         if (view) view.style.display = 'none';
     });
+    applyKpiCardAccess();
 }
 
 function showPurchaseDetailView(viewId) {
@@ -3416,6 +3419,7 @@ function showWarehouseSectionKpiView() {
         var view = document.getElementById(getWarehouseSectionConfig(type).viewId);
         if (view) view.style.display = 'none';
     });
+    applyKpiCardAccess();
 }
 
 function showWarehouseSectionDetailView(type) {
@@ -4031,6 +4035,7 @@ function showMachineKpiView() {
     });
     var repairView = document.getElementById('machine-repairing-details-view');
     if (repairView) repairView.style.display = 'none';
+    applyKpiCardAccess();
 }
 
 function showDieLessKnifeCuttingMachineDetailsView() {
@@ -4044,6 +4049,7 @@ function showDieLessKnifeCuttingMachineDetailsView() {
     });
     var repairView = document.getElementById('machine-repairing-details-view');
     if (repairView) repairView.style.display = 'none';
+    applyKpiCardAccess();
 }
 
 function showMachineDetailView(type) {
