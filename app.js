@@ -21,6 +21,7 @@ var PURCHASE_URL = 'https://script.google.com/macros/s/AKfycbwjHUTJKOh3_P0mXD1Kk
 // ---------------------------------------------------------------------------
 var SESSION_KEY = 'fms_user';
 var ACCESS_KEY  = 'fms_access'; // JSON array of tab names this user is allowed to open (set by login.html)
+var KPI_ACCESS_KEY = 'fms_kpi_access'; // JSON array of KPI-card ids this user is allowed to see (set by login.html)
 
 function getSession() {
     try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; }
@@ -31,6 +32,8 @@ function clearSession() {
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
     try { sessionStorage.removeItem(ACCESS_KEY); } catch (e) {}
     try { localStorage.removeItem(ACCESS_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(KPI_ACCESS_KEY); } catch (e) {}
+    try { localStorage.removeItem(KPI_ACCESS_KEY); } catch (e) {}
 }
 
 // Admin-controlled tab access (USERS sheet, Column I) — an array of tab
@@ -52,6 +55,28 @@ function setAccess(access) {
     try { sessionStorage.setItem(ACCESS_KEY, json); } catch (e) {}
     try {
         if (localStorage.getItem(SESSION_KEY)) localStorage.setItem(ACCESS_KEY, json);
+    } catch (e) {}
+}
+
+// Admin-controlled KPI-card access (USERS sheet, Column J) — an array of
+// KPI-card ids such as ["kpi-cutting-details", "kpi-dice-summary"]. An EMPTY
+// array means "no restriction" — every KPI card inside a tab the user has
+// tab-access to stays visible. This keeps existing users unaffected until an
+// admin deliberately fills in Column J for someone.
+function getKpiAccess() {
+    try {
+        var raw = sessionStorage.getItem(KPI_ACCESS_KEY) || localStorage.getItem(KPI_ACCESS_KEY);
+        if (!raw) return [];
+        var arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+}
+
+function setKpiAccess(kpiAccess) {
+    var json = JSON.stringify(Array.isArray(kpiAccess) ? kpiAccess : []);
+    try { sessionStorage.setItem(KPI_ACCESS_KEY, json); } catch (e) {}
+    try {
+        if (localStorage.getItem(SESSION_KEY)) localStorage.setItem(KPI_ACCESS_KEY, json);
     } catch (e) {}
 }
 
@@ -283,8 +308,14 @@ function initTopbarCalendar() {
     var panel = document.getElementById('topbar-calendar');
     if (!wrap || !btn || !panel) return;
 
-    var monthSelect  = document.getElementById('calendar-month-select');
-    var yearSelect   = document.getElementById('calendar-year-select');
+    var periodTrigger = document.getElementById('calendar-period-trigger');
+    var periodMenu    = document.getElementById('calendar-period-menu');
+    var periodMonth   = document.getElementById('calendar-period-month');
+    var periodYear    = document.getElementById('calendar-period-year');
+    var pickerYear    = document.getElementById('calendar-picker-year');
+    var monthGrid     = document.getElementById('calendar-month-grid');
+    var yearPrevBtn   = document.getElementById('calendar-year-prev');
+    var yearNextBtn   = document.getElementById('calendar-year-next');
     var daysGrid     = document.getElementById('calendar-days');
     var prevBtn      = document.getElementById('calendar-prev-btn');
     var nextBtn      = document.getElementById('calendar-next-btn');
@@ -299,22 +330,6 @@ function initTopbarCalendar() {
     var view  = { month: today.getMonth(), year: today.getFullYear() };
     var selected = null; // { day, month, year }
 
-    MONTH_NAMES.forEach(function (name, idx) {
-        var opt = document.createElement('option');
-        opt.value = String(idx);
-        opt.textContent = name;
-        monthSelect.appendChild(opt);
-    });
-
-    var yearStart = today.getFullYear() - 10;
-    var yearEnd   = today.getFullYear() + 10;
-    for (var y = yearStart; y <= yearEnd; y++) {
-        var yOpt = document.createElement('option');
-        yOpt.value = String(y);
-        yOpt.textContent = String(y);
-        yearSelect.appendChild(yOpt);
-    }
-
     function formatSelectedLabel() {
         if (selected) {
             var sd = new Date(selected.year, selected.month, selected.day);
@@ -326,9 +341,35 @@ function initTopbarCalendar() {
         }
     }
 
+    function setPeriodMenuOpen(isOpen) {
+        periodMenu.hidden = !isOpen;
+        periodTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    function renderMonthPicker() {
+        periodMonth.textContent = MONTH_NAMES[view.month];
+        periodYear.textContent = String(view.year);
+        pickerYear.textContent = String(view.year);
+        monthGrid.innerHTML = '';
+
+        MONTH_NAMES.forEach(function (name, month) {
+            var monthBtn = document.createElement('button');
+            monthBtn.type = 'button';
+            monthBtn.className = 'calendar-month-option';
+            monthBtn.textContent = name.slice(0, 3);
+            monthBtn.setAttribute('aria-label', name + ' ' + view.year);
+            if (month === view.month) monthBtn.classList.add('is-active');
+            monthBtn.addEventListener('click', function () {
+                view.month = month;
+                setPeriodMenuOpen(false);
+                render();
+            });
+            monthGrid.appendChild(monthBtn);
+        });
+    }
+
     function render() {
-        monthSelect.value = String(view.month);
-        yearSelect.value  = String(view.year);
+        renderMonthPicker();
 
         daysGrid.innerHTML = '';
         daysGrid.classList.remove('calendar-days-anim');
@@ -381,6 +422,7 @@ function initTopbarCalendar() {
 
     function close() {
         panel.hidden = true;
+        setPeriodMenuOpen(false);
         wrap.classList.remove('calendar-open');
         btn.setAttribute('aria-expanded', 'false');
     }
@@ -400,13 +442,18 @@ function initTopbarCalendar() {
         if (e.key === 'Escape' && !panel.hidden) close();
     });
 
-    monthSelect.addEventListener('change', function () {
-        view.month = Number(monthSelect.value);
-        render();
+    periodTrigger.addEventListener('click', function () {
+        setPeriodMenuOpen(periodMenu.hidden);
     });
-    yearSelect.addEventListener('change', function () {
-        view.year = Number(yearSelect.value);
+    yearPrevBtn.addEventListener('click', function () {
+        view.year--;
         render();
+        setPeriodMenuOpen(true);
+    });
+    yearNextBtn.addEventListener('click', function () {
+        view.year++;
+        render();
+        setPeriodMenuOpen(true);
     });
 
     prevBtn.addEventListener('click', function () {
@@ -925,11 +972,35 @@ function mountDropdown(fieldId, options, placeholder) {
     if (wrapper._dd) { wrapper._dd.setOptions(options || []); return; }
 
     var trigger = wrapper.querySelector('.dropdown-trigger');
+    var panel   = wrapper.querySelector('.dropdown-panel');
     var search  = wrapper.querySelector('.dropdown-search');
     var list    = wrapper.querySelector('.dropdown-list');
     var hidden  = document.getElementById('hidden-' + fieldId);
     var current = '';
+    // Marks where the panel normally lives in the DOM, so it can be moved
+    // back here (instead of onto document.body) when the dropdown closes.
+    var panelAnchor = document.createComment('dropdown-panel-anchor-' + fieldId);
+    panel.parentNode.insertBefore(panelAnchor, panel);
     options = options || [];
+
+    // The panel is portalled onto document.body while open and positioned
+    // with `position: fixed`, so it always renders on top of everything —
+    // instead of being clipped by an ancestor card's `overflow: hidden`
+    // (e.g. .page-card), which cut the list off partway down before.
+    function positionPanel() {
+    var rect = trigger.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = (rect.bottom + 4) + 'px';
+    panel.style.left = rect.left + 'px';
+    panel.style.width = rect.width + 'px';
+    panel.style.margin = '0';
+    }
+
+    function reposition() {
+    if (wrapper.classList.contains('open')) positionPanel();
+    }
+    window.addEventListener('resize', reposition);
+    document.addEventListener('scroll', reposition, true);
 
     function render(filter) {
     list.innerHTML = '';
@@ -961,15 +1032,29 @@ function mountDropdown(fieldId, options, placeholder) {
 
     function open() {
     document.querySelectorAll('.dropdown-wrapper.open').forEach(function (w) {
-        if (w !== wrapper) w.classList.remove('open');
+        if (w !== wrapper && w._dd) w._dd.close();
     });
     wrapper.classList.add('open');
+    document.body.appendChild(panel);
+    panel.style.display = 'block';
+    positionPanel();
     search.value = '';
     render('');
     search.focus();
     }
 
-    function close() { wrapper.classList.remove('open'); }
+    function close() {
+    wrapper.classList.remove('open');
+    if (panel.parentNode === document.body) {
+        panelAnchor.parentNode.insertBefore(panel, panelAnchor);
+        panel.style.position = '';
+        panel.style.top = '';
+        panel.style.left = '';
+        panel.style.width = '';
+        panel.style.margin = '';
+        panel.style.display = '';
+    }
+    }
 
     trigger.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -981,6 +1066,7 @@ function mountDropdown(fieldId, options, placeholder) {
 
     wrapper._dd = {
     getValue: function () { return current; },
+    close: close,
     reset: function () {
         current = '';
         trigger.textContent = placeholder;
@@ -998,7 +1084,9 @@ function mountDropdown(fieldId, options, placeholder) {
 }
 
 document.addEventListener('click', function () {
-    document.querySelectorAll('.dropdown-wrapper.open').forEach(function (w) { w.classList.remove('open'); });
+    document.querySelectorAll('.dropdown-wrapper.open').forEach(function (w) {
+    if (w._dd) w._dd.close(); else w.classList.remove('open');
+    });
 });
 
 function initAllDropdowns() {
@@ -1349,8 +1437,9 @@ function initNav() {
         document.querySelectorAll('.page-view').forEach(function (v) { v.style.display = 'none'; });
         var target = document.getElementById('page-' + page);
         if (target) target.style.display = '';
-        var titleEl = document.getElementById('topbar-title');
-        if (titleEl) titleEl.textContent = item.getAttribute('data-title') || 'FMS FORM';
+        // Topbar title now permanently shows the version banner (see
+        // index.html / style.css) instead of the active page name, so we no
+        // longer overwrite its text on nav clicks.
 
         // Admin-controlled access check — if the user isn't permitted on this
         // tab, show the warning card instead of the tab's real content and
@@ -1542,6 +1631,196 @@ function accessDeniedLabelFor_(page) {
     return item ? item.label : 'this tab';
 }
 
+// ---------------------------------------------------------------------------
+// Per-KPI-card access (finer-grained than the tab-level access above). Driven
+// by USERS sheet Column J, delivered at login/poll as kpiAccess (an array of
+// KPI-card ids). Every KPI card in the app (every ".kpi-card" element in
+// index.html that has an id) is listed here with a human-readable label —
+// this list is what the admin's Column J dropdown values are matched against.
+//
+// IMPORTANT: an EMPTY kpiAccess list means "no restriction" for that user —
+// this keeps every existing user unaffected until an admin deliberately
+// picks specific cards for someone in Column J.
+// ---------------------------------------------------------------------------
+var ALL_KPI_ITEMS = [
+    { id: 'kpi-cutting-details',                     label: 'Batch Cutting Details' },
+    { id: 'kpi-bantala-details',                      label: 'Bantala Details' },
+    { id: 'kpi-floor-qc-details',                     label: 'Floor Supervisor & In-Line QC Details' },
+    { id: 'kpi-edge-paint-details',                   label: 'Edge Paint Details' },
+    { id: 'kpi-pre-aql-details',                      label: 'Pre-AQL Details' },
+    { id: 'kpi-endline-qc-details',                   label: 'End-Line QC Details' },
+    { id: 'kpi-post-aql-details',                     label: 'POST-AQL Details' },
+    { id: 'kpi-warehouse-fms-details',                label: 'WAREHOUSE-FMS Details' },
+    { id: 'kpi-shipment-details',                     label: 'Shipment Details' },
+    { id: 'kpi-submitted-fms',                        label: 'Submitted FMS Data' },
+    { id: 'kpi-dice-summary',                         label: 'Dice Data Summary' },
+    { id: 'kpi-forma-summary',                        label: 'Forma Data Summary' },
+    { id: 'kpi-submitted-domestic',                   label: 'Submitted Domestic Data' },
+    { id: 'kpi-submitted-import',                     label: 'Submitted Import Data' },
+    { id: 'kpi-checking-details',                     label: 'Checking Details' },
+    { id: 'kpi-warehouse-received-details',           label: 'Warehouse Received Details' },
+    { id: 'kpi-die-less-knife-cutting-machine-details', label: 'Die-Less Knife Cutting Machine Details' },
+    { id: 'kpi-machine-repairing-details',            label: 'Machine & Repairing Details' },
+    { id: 'kpi-machine-data',                         label: 'Machine Data' },
+    { id: 'kpi-monthly-machine-inactivity-data',      label: 'Monthly Machine Inactivity (Data)' },
+    { id: 'kpi-ot-details',                           label: 'Additional Work Details' },
+    { id: 'kpi-leave-details',                        label: 'Leave Details' },
+    { id: 'kpi-ot-leave-analysis',                    label: 'Additional Work & Leave Analysis' },
+    { id: 'kpi-domestic-po',                          label: 'Domestic Purchase Order Form' },
+    { id: 'kpi-import-po',                            label: 'Import Purchase Order Form' },
+    { id: 'kpi-store-ai-data',                        label: 'Pre-Production for Store' },
+    { id: 'kpi-preprod-data',                         label: 'Pre-Production Data' },
+    { id: 'kpi-pdf-floor-supervisor',                 label: 'Floor Supervisor (PDF)' },
+    { id: 'kpi-pdf-inline-qc',                        label: 'In-Line QC (PDF)' },
+    { id: 'kpi-pdf-endline-qc',                       label: 'End-Line QC (PDF)' },
+    { id: 'kpi-pdf-edge-paint',                       label: 'Edge-Paint (PDF)' },
+    { id: 'kpi-pdf-followup-planned',                 label: 'Follow-Up Planned (PDF)' },
+    { id: 'open-dice-tracker',                        label: 'Dice Tracker Form' },
+    { id: 'open-forma-tracker',                       label: 'Forma Tracker Form' }
+];
+
+var KPI_ID_TO_LABEL = {};
+var KPI_LABEL_TO_ID = {};
+ALL_KPI_ITEMS.forEach(function (item) {
+    KPI_ID_TO_LABEL[item.id] = item.label;
+    KPI_LABEL_TO_ID[item.label.trim().toLowerCase()] = item.id;
+});
+
+// Column J entries may be typed as either the id (e.g. "kpi-cutting-details")
+// or the human-readable label (e.g. "Batch Cutting Details") — admins pick
+// from a dropdown of labels, so normalize everything to ids here.
+function normalizeKpiAccessList_(rawList) {
+    return rawList.map(function (entry) {
+        var key = String(entry).trim().toLowerCase();
+        if (KPI_LABEL_TO_ID.hasOwnProperty(key)) return KPI_LABEL_TO_ID[key];
+        return String(entry).trim();
+    });
+}
+
+// True if the current user may see/open the KPI card with this id. Ids not
+// present in ALL_KPI_ITEMS (none expected, but kept safe) are unrestricted.
+function hasKpiAccess(kpiId) {
+    if (!kpiId || !KPI_ID_TO_LABEL.hasOwnProperty(kpiId)) return true;
+    var list = normalizeKpiAccessList_(getKpiAccess());
+    if (!list.length) return true; // no restriction set for this user
+    return list.indexOf(kpiId) !== -1;
+}
+
+// KPI cards are NEVER hidden for restricted users anymore — every card in
+// every KPI grid is always visible, side by side with the cards the user
+// does have access to. Access is enforced only at open-time (see
+// showKpiAccessDeniedView_ / the click & keydown listeners below), which
+// shows the same "Access Restricted" warning card used at the tab level,
+// in place of that KPI's real content. This function is kept (as a no-op
+// beyond undoing any stale display:none left over from an older version of
+// this app) so existing calls to applyKpiCardAccess() elsewhere stay safe.
+function applyKpiCardAccess() {
+    document.querySelectorAll('.kpi-card[id]').forEach(function (card) {
+        if (!KPI_ID_TO_LABEL.hasOwnProperty(card.id)) return; // not a gated card
+        if (card.getAttribute('data-kpi-prev-display') !== null) {
+            card.style.display = card.getAttribute('data-kpi-prev-display') || '';
+            card.removeAttribute('data-kpi-prev-display');
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Maps every gated KPI card id to the KPI grid it lives in and the detail
+// view it opens, so a restricted click can show the "Access Restricted"
+// warning card inside that exact detail view instead of loading real data.
+// relocateToPage handles the one KPI (Follow-Up Planned) whose detail
+// markup has to be moved into the PDF page first, matching what
+// showPdfFollowUpPlannedView() itself does.
+// ---------------------------------------------------------------------------
+var KPI_ACCESS_TARGETS_ = {
+    'kpi-cutting-details':                       { grid: 'batch-list-kpi-view',       detail: 'batch-list-cutting-view' },
+    'kpi-bantala-details':                       { grid: 'batch-list-kpi-view',       detail: 'batch-list-bantala-view' },
+    'kpi-floor-qc-details':                      { grid: 'batch-list-kpi-view',       detail: 'batch-list-floor-qc-view' },
+    'kpi-edge-paint-details':                    { grid: 'batch-list-kpi-view',       detail: 'batch-list-edge-paint-view' },
+    'kpi-pre-aql-details':                       { grid: 'batch-list-kpi-view',       detail: 'batch-list-pre-aql-view' },
+    'kpi-endline-qc-details':                    { grid: 'batch-list-kpi-view',       detail: 'batch-list-endline-qc-view' },
+    'kpi-post-aql-details':                      { grid: 'batch-list-kpi-view',       detail: 'batch-list-post-aql-view' },
+    'kpi-warehouse-fms-details':                 { grid: 'batch-list-kpi-view',       detail: 'batch-list-warehouse-fms-view' },
+    'kpi-shipment-details':                      { grid: 'batch-list-kpi-view',       detail: 'batch-list-shipment-view' },
+    'kpi-submitted-fms':                         { grid: 'reports-kpi-view',          detail: 'reports-fms-data-view' },
+    'kpi-dice-summary':                          { grid: 'reports-kpi-view',          detail: 'reports-dice-summary-view' },
+    'kpi-forma-summary':                         { grid: 'reports-kpi-view',          detail: 'reports-forma-summary-view' },
+    'kpi-submitted-domestic':                    { grid: 'reports-kpi-view',          detail: 'reports-domestic-purchase-view' },
+    'kpi-submitted-import':                      { grid: 'reports-kpi-view',          detail: 'reports-import-purchase-view' },
+    'kpi-checking-details':                      { grid: 'warehouse-section-kpi-view', detail: 'checking-details-view' },
+    'kpi-warehouse-received-details':            { grid: 'warehouse-section-kpi-view', detail: 'warehouse-received-details-view' },
+    'kpi-die-less-knife-cutting-machine-details':{ grid: 'machine-kpi-view',          detail: 'die-less-knife-cutting-machine-details-view' },
+    'kpi-machine-repairing-details':             { grid: 'machine-kpi-view',          detail: 'machine-repairing-details-view' },
+    'kpi-machine-data':                          { grid: 'machine-kpi-view',          detail: 'machine-data-view' },
+    'kpi-monthly-machine-inactivity-data':       { grid: 'machine-kpi-view',          detail: 'monthly-machine-inactivity-data-view' },
+    'kpi-ot-details':                            { grid: 'ot-leave-kpi-view',         detail: 'ot-details-view' },
+    'kpi-leave-details':                         { grid: 'ot-leave-kpi-view',         detail: 'leave-details-view' },
+    'kpi-ot-leave-analysis':                     { grid: 'ot-leave-kpi-view',         detail: 'ot-leave-analysis-view' },
+    'kpi-domestic-po':                           { grid: 'purchase-kpi-view',         detail: 'domestic-po-view' },
+    'kpi-import-po':                             { grid: 'purchase-kpi-view',         detail: 'import-po-view' },
+    'kpi-store-ai-data':                         { grid: 'store-kpi-view',            detail: 'store-ai-data-view' },
+    'kpi-preprod-data':                          { grid: 'store-kpi-view',            detail: 'preprod-data-view' },
+    'kpi-pdf-floor-supervisor':                  { grid: 'pdf-kpi-view',              detail: 'pdf-floor-supervisor-view' },
+    'kpi-pdf-inline-qc':                         { grid: 'pdf-kpi-view',              detail: 'pdf-inline-qc-view' },
+    'kpi-pdf-endline-qc':                        { grid: 'pdf-kpi-view',              detail: 'pdf-endline-qc-view' },
+    'kpi-pdf-edge-paint':                        { grid: 'pdf-kpi-view',              detail: 'pdf-edge-paint-view' },
+    'kpi-pdf-followup-planned':                  { grid: 'pdf-kpi-view',              detail: 'batch-list-followup-planned-view', relocateToPage: 'page-pdf' },
+    'open-dice-tracker':                         { grid: 'forma-dice-menu',           detail: 'dice-tracker-view' },
+    'open-forma-tracker':                        { grid: 'forma-dice-menu',           detail: 'forma-tracker-view' }
+};
+
+// Opens the restricted KPI's own detail view (same as a real click would)
+// but shows the "Access Restricted" warning card inside it instead of the
+// real content — so the person sees the same view they'd normally land on,
+// just gated. Falls back to a no-op (defense-in-depth block only) if a KPI
+// id isn't in the map above.
+function showKpiAccessDeniedView_(card) {
+    var target = KPI_ACCESS_TARGETS_[card.id];
+    if (!target) return;
+    var gridEl = document.getElementById(target.grid);
+    var detailEl = document.getElementById(target.detail);
+    if (!detailEl) return;
+    if (target.relocateToPage) {
+        var pageEl = document.getElementById(target.relocateToPage);
+        if (pageEl && detailEl.parentNode !== pageEl) pageEl.appendChild(detailEl);
+    }
+    if (gridEl) gridEl.style.display = 'none';
+    detailEl.style.display = '';
+    showAccessDeniedCard(detailEl, KPI_ID_TO_LABEL[card.id] || 'this section', true);
+}
+
+// Defense-in-depth: even if a card is briefly visible (e.g. a race before
+// applyKpiCardAccess() runs) or someone re-shows it via devtools, clicking
+// or Enter/Space-activating a restricted card is blocked here, in the
+// CAPTURING phase on document — this runs before the card's own click/
+// keydown listener (added directly on the card element in main.js), so
+// preventDefault + stopPropagation here stops that listener from firing.
+function kpiCardFromEvent_(e) {
+    var el = e.target;
+    while (el && el !== document) {
+        if (el.classList && el.classList.contains('kpi-card') && el.id) return el;
+        el = el.parentNode;
+    }
+    return null;
+}
+
+document.addEventListener('click', function (e) {
+    var card = kpiCardFromEvent_(e);
+    if (!card || hasKpiAccess(card.id)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showKpiAccessDeniedView_(card);
+}, true);
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var card = kpiCardFromEvent_(e);
+    if (!card || hasKpiAccess(card.id)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showKpiAccessDeniedView_(card);
+}, true);
+
 // Shows a "no access" warning card inside the given page-view element,
 // hiding whatever real content it contains without altering the DOM
 // structure. Each child's PRE-EXISTING display value is remembered (via a
@@ -1549,10 +1828,11 @@ function accessDeniedLabelFor_(page) {
 // can restore it exactly — this matters for pages like Forma & Dice Form
 // that already toggle their own children's display internally (picker cards
 // vs. the chosen sub-form), so we never clobber that state.
-function showAccessDeniedCard(pageView, label) {
+function showAccessDeniedCard(pageView, label, preserveTopbar) {
     if (!pageView) return;
     Array.prototype.forEach.call(pageView.children, function (child) {
         if (child.classList.contains('access-denied-card')) return;
+        if (preserveTopbar && child.classList.contains('data-view-topbar')) return;
         if (child.getAttribute('data-access-prev-display') === null) {
             child.setAttribute('data-access-prev-display', child.style.display || '');
         }
@@ -1645,13 +1925,53 @@ function reEvaluateCurrentPageAccess_() {
     }
 }
 
+// Looks at every gated KPI whose detail view is currently open (loaded into
+// the DOM with display !== 'none' — regardless of which top-level tab is on
+// screen right now, so access changes take effect even for a KPI view left
+// open in the background) and, if its access status just flipped, silently
+// swaps it between the warning card and its real content — same "no reload,
+// no interruption" behavior as reEvaluateCurrentPageAccess_() above.
+//
+// Granting access: hides the warning card, then re-dispatches a click on the
+// KPI's own card element. Since hasKpiAccess() now returns true, the
+// document-level capturing guard lets it through and the KPI's normal click
+// handler (wherever it's defined — app.js, main.js, or a web.js closure)
+// runs exactly as if the person had just clicked it, loading real data.
+//
+// Revoking access: reuses showKpiAccessDeniedView_() to swap the real
+// content out for the warning card in place, without touching which tab is
+// on screen.
+function reEvaluateCurrentKpiAccess_() {
+    Object.keys(KPI_ACCESS_TARGETS_).forEach(function (kpiId) {
+        var target = KPI_ACCESS_TARGETS_[kpiId];
+        var detailEl = document.getElementById(target.detail);
+        if (!detailEl || detailEl.style.display === 'none') return; // not currently open
+
+        var isShowingDenied = detailEl.getAttribute('data-access-denied') === '1';
+        var nowAllowed = hasKpiAccess(kpiId);
+
+        if (nowAllowed && isShowingDenied) {
+            hideAccessDeniedCard(detailEl);
+            var cardEl = document.getElementById(kpiId);
+            if (cardEl) cardEl.click();
+        } else if (!nowAllowed && !isShowingDenied) {
+            showKpiAccessDeniedView_({ id: kpiId });
+        }
+    });
+}
+
 function pollAccess_(user) {
     if (!user) return;
     function onResult(result) {
-        if (!result || !result.success || !Array.isArray(result.access)) return;
-        if (accessListsEqual_(result.access, getAccess())) return; // nothing changed, skip a no-op DOM pass
-        setAccess(result.access);
+        if (!result || !result.success) return;
+        var tabChanged = Array.isArray(result.access) && !accessListsEqual_(result.access, getAccess());
+        var kpiChanged = Array.isArray(result.kpiAccess) && !accessListsEqual_(result.kpiAccess, getKpiAccess());
+        if (!tabChanged && !kpiChanged) return; // nothing changed, skip a no-op DOM pass
+        if (tabChanged) setAccess(result.access);
+        if (kpiChanged) setKpiAccess(result.kpiAccess);
         reEvaluateCurrentPageAccess_();
+        applyKpiCardAccess();
+        if (kpiChanged) reEvaluateCurrentKpiAccess_();
     }
     if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run.withSuccessHandler(onResult).withFailureHandler(function () {}).getUserAccess(user);
@@ -1665,6 +1985,7 @@ function pollAccess_(user) {
 function initAccessPolling() {
     var user = getSession();
     if (!user) return;
+    applyKpiCardAccess(); // apply immediately on load, before the first poll round-trip
     pollAccess_(user);
     setInterval(function () { pollAccess_(user); }, ACCESS_POLL_MS);
 }
@@ -2084,6 +2405,7 @@ function showReportsKpiView() {
         var view = document.getElementById(id);
         if (view) view.style.display = id === 'reports-kpi-view' ? '' : 'none';
     });
+    applyKpiCardAccess();
 }
 
 function showReportsFmsDataView() {
@@ -4473,6 +4795,7 @@ function showBatchListKpiView() {
     // and get hidden here too, so navigating back to the Production Data KPI
     // grid always resets ALL subviews, including ones defined outside this file.
     document.querySelectorAll('.batch-list-extra-view').forEach(function (v) { v.style.display = 'none'; });
+    applyKpiCardAccess();
 }
 
 function showPdfKpiView() {
@@ -4488,6 +4811,7 @@ function showPdfKpiView() {
     if (eqcView) eqcView.style.display = 'none';
     if (epView)  epView.style.display  = 'none';
     if (followUpView) followUpView.style.display = 'none';
+    applyKpiCardAccess();
 }
 
 function showStoreKpiView() {
@@ -4495,6 +4819,7 @@ function showStoreKpiView() {
     var aiDataView = document.getElementById('store-ai-data-view');
     if (kpiView)    kpiView.style.display    = '';
     if (aiDataView) aiDataView.style.display = 'none';
+    applyKpiCardAccess();
 }
 
 function showBatchListCuttingView() {
@@ -8955,7 +9280,8 @@ window.FMS = {
     exportRowsToXlsx: exportRowsToXlsx,
     excelRowColor_:   excelRowColor_,
     loadExcelJs:      loadExcelJs,
-    showBatchListKpiView: showBatchListKpiView
+    showBatchListKpiView: showBatchListKpiView,
+    applyKpiCardAccess: applyKpiCardAccess
 };
 
 })();
