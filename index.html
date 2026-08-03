@@ -242,7 +242,7 @@
   <div class="main-content">
 
     <header class="topbar">
-      <span class="topbar-title" id="topbar-title">Home</span>
+      <span class="topbar-title" id="topbar-title">New Version Updated : <span class="version-pulse">1.0.3</span></span>
 
       <div class="topbar-actions">
         <div class="topbar-calendar-wrap" id="topbar-calendar-wrap">
@@ -251,9 +251,22 @@
           </button>
           <div class="topbar-calendar" id="topbar-calendar" hidden>
             <div class="calendar-head">
-              <div class="calendar-selects">
-                <select class="calendar-select" id="calendar-month-select" aria-label="Month"></select>
-                <select class="calendar-select" id="calendar-year-select" aria-label="Year"></select>
+              <div class="calendar-period-picker">
+                <button type="button" class="calendar-period-trigger" id="calendar-period-trigger" aria-label="Choose month and year" aria-haspopup="true" aria-expanded="false">
+                  <span id="calendar-period-month">August</span><span id="calendar-period-year">2026</span>
+                  <span class="material-icons-round" aria-hidden="true">arrow_drop_down</span>
+                </button>
+                <div class="calendar-period-menu" id="calendar-period-menu" hidden>
+                  <div class="calendar-period-menu-head">
+                    <span>Select month</span>
+                    <div class="calendar-year-stepper">
+                      <button type="button" id="calendar-year-prev" aria-label="Previous year"><span class="material-icons-round">chevron_left</span></button>
+                      <span id="calendar-picker-year">2026</span>
+                      <button type="button" id="calendar-year-next" aria-label="Next year"><span class="material-icons-round">chevron_right</span></button>
+                    </div>
+                  </div>
+                  <div class="calendar-month-grid" id="calendar-month-grid"></div>
+                </div>
               </div>
               <div class="calendar-nav">
                 <button type="button" id="calendar-prev-btn" aria-label="Previous month">
