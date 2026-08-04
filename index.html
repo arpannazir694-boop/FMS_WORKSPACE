@@ -245,6 +245,22 @@
       <span class="topbar-title" id="topbar-title">New Version Updated : <span class="version-pulse">1.0.3</span></span>
 
       <div class="topbar-actions">
+        <div class="topbar-ai-wrap" id="topbar-ai-wrap">
+          <button type="button" class="topbar-calendar-btn topbar-ai-btn" id="topbar-ai-btn" title="Pre-Production AI" aria-label="Pre-Production AI">
+            <span class="material-icons-round" style="font-size:22px;">auto_awesome</span>
+          </button>
+        </div>
+        <div class="topbar-bai-wrap" id="topbar-bai-wrap">
+          <button type="button" class="topbar-calendar-btn topbar-bai-btn" id="topbar-bai-btn" title="Batch Analysis with AI" aria-label="Batch Analysis with AI">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:22px;height:22px;">
+              <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="rotate(90 12 12)"/>
+              <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="rotate(180 12 12)"/>
+              <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="rotate(270 12 12)"/>
+              <circle cx="12" cy="12" r="1.15" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
         <div class="topbar-calendar-wrap" id="topbar-calendar-wrap">
           <button type="button" class="topbar-calendar-btn" id="topbar-calendar-btn" title="Calendar" aria-label="Calendar" aria-haspopup="true" aria-expanded="false">
             <span class="material-icons-round" style="font-size:22px;">calendar_today</span>
@@ -3970,6 +3986,16 @@
           </div>
         </div>
       </div>
+      <!-- ============================================================ -->
+      <!-- PRE-PRODUCTION AI PAGE (markup injected by ai.js)             -->
+      <!-- ============================================================ -->
+      <div id="page-ai" class="page-view" style="display:none;"></div>
+
+      <!-- ============================================================ -->
+      <!-- BATCH ANALYSIS WITH AI PAGE (markup injected by BAI.js)       -->
+      <!-- ============================================================ -->
+      <div id="page-bai" class="page-view" style="display:none;"></div>
+
     </main>
   </div>
 </div>
@@ -3984,6 +4010,8 @@
 <script src="main.js"></script>
 <script src="pdf-fonts.js"></script>
 <script src="web.js"></script>
+<script src="ai.js"></script>
+<script src="BAI.js"></script>
 
 </body>
 </html>
