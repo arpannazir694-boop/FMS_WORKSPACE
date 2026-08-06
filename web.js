@@ -479,7 +479,9 @@
     // After deploying PlannedDate.gs as a Web App, paste its /exec URL here.
     var PLANNED_DATE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzGgpe9DPGQ50pCID9lNTaoqYqzdfRS1Vc3pLDItpPscRBxbFl4aKq8mMdygnLsQUr58Q/exec';
 
-    // Columns rendered in every stage table / PDF table, in order. Floor
+    // Columns rendered in every stage table / PDF table, in order. The
+    // source-sheet AD value is placed immediately after In-Line QC and is
+    // given extra PDF width so longer values remain readable. Floor
     // Supervisor and In-Line QC are always kept as two separate columns —
     // never combined into one value. "Follow-Up Remarks" has no backing
     // data field — it's intentionally left blank (wider than the other
@@ -490,19 +492,29 @@
     // rescales them to the exact usable width so the table always spans
     // edge-to-edge regardless of page size/margin tweaks.
     var PD_COLUMNS = [
-        { key: 'unit',                label: 'Unit',             pdfWidth: 55 },
-        { key: 'batchNo',             label: 'Batch No.',        pdfWidth: 88 },
-        { key: 'brand',               label: 'Brand',            pdfWidth: 81 },
-        { key: 'sku',                 label: 'SKU',              pdfWidth: 81 },
-        { key: 'style',               label: 'Style',            pdfWidth: 81 },
-        { key: 'colour',              label: 'Colour',           pdfWidth: 85 },
-        { key: 'quantity',            label: 'Quantity',         pdfWidth: 62, halign: 'right' },
-        { key: 'etd',                 label: 'ETD',              pdfWidth: 73 },
-        { key: 'fabricatorName',      label: 'Fabricator Name',  pdfWidth: 90 },
-        { key: 'floorSupervisorName', label: 'Floor Supervisor', pdfWidth: 130 },
-        { key: 'inlineQcName',        label: 'In-Line QC',       pdfWidth: 101 },
+        { key: 'unit',                label: 'Unit',             pdfWidth: 40 },
+        { key: 'batchNo',             label: 'Batch No.',        pdfWidth: 80 },
+        { key: 'brand',               label: 'Brand',            pdfWidth: 55 },
+        { key: 'sku',                 label: 'SKU',              pdfWidth: 55 },
+        { key: 'style',               label: 'Style',            pdfWidth: 55 },
+        { key: 'colour',              label: 'Colour',           pdfWidth: 55 },
+        { key: 'quantity',            label: 'Quantity',         pdfWidth: 45, halign: 'right' },
+        { key: 'etd',                 label: 'ETD',              pdfWidth: 60 },
+        { key: 'fabricatorName',      label: 'Fabricator Name',  pdfWidth: 85 },
+        { key: 'floorSupervisorName', label: 'Floor Supervisor', pdfWidth: 110 },
+        { key: 'inlineQcName',        label: 'In-Line QC',       pdfWidth: 95 },
+        { key: 'adData',              label: 'AD',               pdfWidth: 165 },
         { key: 'followUpRemarks',     label: 'Follow-Up Remarks', pdfWidth: 150 }
     ];
+
+    // AD's header comes from the source sheet, so the report displays the
+    // same field name the user sees there instead of the technical column
+    // letter. The fallback only applies when the source header is blank.
+    function getPdColumnLabel_(col) {
+        if (col.key !== 'adData') return col.label;
+        var label = lastReport && String(lastReport.adColumnLabel || '').trim();
+        return label || col.label;
+    }
 
     var STAGE_ICONS = {
         fu1_fs: 'looks_one', fu1_qc: 'looks_one',
@@ -685,7 +697,11 @@
                     stage.records.sort(compareRecordsForStage_(stage.key));
                     stage.count = stage.records.length;
                 });
-                lastReport = { date: result.date || dateStr, stages: result.stages };
+                lastReport = {
+                    date: result.date || dateStr,
+                    adColumnLabel: result.adColumnLabel || 'AD',
+                    stages: result.stages
+                };
                 renderReport();
             })
             .catch(function (error) {
@@ -744,7 +760,7 @@
             html += '  <div class="fup-stage-table-wrap">';
             html += '    <table class="dt-table">';
             html += '      <thead><tr>';
-            PD_COLUMNS.forEach(function (col) { html += '<th class="dt-th">' + escapeHtml(col.label) + '</th>'; });
+            PD_COLUMNS.forEach(function (col) { html += '<th class="dt-th">' + escapeHtml(getPdColumnLabel_(col)) + '</th>'; });
             html += '      </tr></thead>';
             html += '      <tbody>';
             stage.records.forEach(function (record, i) {
@@ -877,7 +893,7 @@
         drawPageFrame();
         var cursorY = contentTop;
 
-        var tableHead = [PD_COLUMNS.map(function (col) { return col.label; })];
+        var tableHead = [PD_COLUMNS.map(function (col) { return getPdColumnLabel_(col); })];
         var columnStyles = {};
         PD_COLUMNS.forEach(function (col, i) {
             columnStyles[i] = { cellWidth: col.pdfWidth * widthScale, halign: col.halign || 'left' };
@@ -950,7 +966,7 @@
                     fillColor: PDF_COLORS.headFill,
                     textColor: PDF_COLORS.black,
                     fontSize: 8.7,
-                    halign: 'left',
+                    halign: 'center',
                     lineColor: PDF_COLORS.border,
                     lineWidth: 0.5
                 },
@@ -1037,7 +1053,7 @@
                 var colCount = PD_COLUMNS.length + 1; // + row-number column
 
                 worksheet.columns = [{ width: 6 }].concat(PD_COLUMNS.map(function (col) {
-                    return { width: col.key === 'followUpRemarks' ? 34 : 18 };
+                    return { width: col.key === 'adData' ? 28 : (col.key === 'followUpRemarks' ? 34 : 18) };
                 }));
 
                 // Title + subtitle rows, merged across every column.
@@ -1059,7 +1075,7 @@
                 var spacerRow = worksheet.addRow([]); // spacer row
                 borderEntireRow(spacerRow, colCount);
 
-                var headerRow = worksheet.addRow(['#'].concat(PD_COLUMNS.map(function (col) { return col.label; })));
+                var headerRow = worksheet.addRow(['#'].concat(PD_COLUMNS.map(function (col) { return getPdColumnLabel_(col); })));
                 headerRow.height = 22;
                 headerRow.eachCell(function (cell) {
                     cell.font      = { name: EXCEL_FONT_NAME, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
