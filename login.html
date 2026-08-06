@@ -178,6 +178,7 @@
   var SESSION_KEY     = 'fms_user';
   var ACCESS_KEY      = 'fms_access';     // JSON array of tab names this user is allowed to open
   var KPI_ACCESS_KEY  = 'fms_kpi_access'; // JSON array of KPI-card ids this user is allowed to see (empty = no restriction)
+  var AI_ACCESS_KEY   = 'fms_ai_access';  // JSON array of AI-feature names this user is allowed to open (empty = no restriction)
   var MAIN_PAGE   = 'index.html';
 
   var form        = document.getElementById('login-form');
@@ -305,18 +306,21 @@
     document.head.appendChild(script);
   }
 
-  function onLoginSuccess(username, access, kpiAccess) {
+  function onLoginSuccess(username, access, kpiAccess, aiAccess) {
     try {
       sessionStorage.setItem(SESSION_KEY, username);
       sessionStorage.setItem(ACCESS_KEY, JSON.stringify(access || []));
       sessionStorage.setItem(KPI_ACCESS_KEY, JSON.stringify(kpiAccess || []));
+      sessionStorage.setItem(AI_ACCESS_KEY, JSON.stringify(aiAccess || []));
       if (rememberMe && rememberMe.checked) {
         localStorage.setItem(SESSION_KEY, username);
         localStorage.setItem(ACCESS_KEY, JSON.stringify(access || []));
         localStorage.setItem(KPI_ACCESS_KEY, JSON.stringify(kpiAccess || []));
+        localStorage.setItem(AI_ACCESS_KEY, JSON.stringify(aiAccess || []));
       } else {
         localStorage.removeItem(ACCESS_KEY);
         localStorage.removeItem(KPI_ACCESS_KEY);
+        localStorage.removeItem(AI_ACCESS_KEY);
       }
     } catch (e) {}
     successOvl.classList.add('visible');
@@ -336,7 +340,7 @@
       google.script.run
         .withSuccessHandler(function (result) {
           setLoading(false);
-          if (result && result.success) onLoginSuccess(result.username || username, result.access, result.kpiAccess);
+          if (result && result.success) onLoginSuccess(result.username || username, result.access, result.kpiAccess, result.aiAccess);
           else showAlert((result && result.error) || 'Invalid username or password.');
         })
         .withFailureHandler(function (err) { setLoading(false); showAlert(err.message || 'Login failed.'); })
@@ -345,7 +349,7 @@
       jsonp({ action: 'validateLogin', username: username, password: password }, function (err, result) {
         setLoading(false);
         if (err) { showAlert(err.message); return; }
-        if (result && result.success) onLoginSuccess(result.username || username, result.access, result.kpiAccess);
+        if (result && result.success) onLoginSuccess(result.username || username, result.access, result.kpiAccess, result.aiAccess);
         else showAlert((result && result.error) || 'Invalid username or password.');
       });
     }
@@ -366,6 +370,8 @@
       if (lsAccess) sessionStorage.setItem(ACCESS_KEY, lsAccess);
       var lsKpiAccess = localStorage.getItem(KPI_ACCESS_KEY);
       if (lsKpiAccess) sessionStorage.setItem(KPI_ACCESS_KEY, lsKpiAccess);
+      var lsAiAccess = localStorage.getItem(AI_ACCESS_KEY);
+      if (lsAiAccess) sessionStorage.setItem(AI_ACCESS_KEY, lsAiAccess);
       goToMainPage();
     }
   } catch (e) {}
