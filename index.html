@@ -242,7 +242,7 @@
   <div class="main-content">
 
     <header class="topbar">
-      <span class="topbar-title" id="topbar-title">New Version Updated : <span class="version-pulse">1.0.3</span></span>
+      <span class="topbar-title" id="topbar-title">New Version Updated : <span class="version-pulse">1.1.4</span></span>
 
       <div class="topbar-actions">
         <div class="topbar-ai-wrap" id="topbar-ai-wrap">
@@ -258,6 +258,16 @@
               <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="rotate(180 12 12)"/>
               <path d="M12,12 C9.2,9.6 8.3,6.1 12,2.6 C15.7,6.1 14.8,9.6 12,12 Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="rotate(270 12 12)"/>
               <circle cx="12" cy="12" r="1.15" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <div class="topbar-trio-wrap" id="topbar-trio-wrap">
+          <button type="button" class="topbar-calendar-btn topbar-trio-btn" id="topbar-trio-btn" title="Trio AI" aria-label="Trio AI" style="color:#7c3aed;">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:22px;height:22px;">
+              <path d="M13,5 L7,5 Q4,5 4,8 L4,18 Q4,21 7,21 L15,21 Q18,21 18,18 L18,10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M17.2,2 C17.5,4.4 18,4.9 20,6 C18,7.1 17.5,7.6 17.2,10 C16.9,7.6 16.4,7.1 14.4,6 C16.4,4.9 16.9,4.4 17.2,2 Z" fill="currentColor"/>
+              <text x="11" y="11.8" font-family="Arial, Helvetica, sans-serif" font-size="3.4" font-weight="700" letter-spacing="0.3" text-anchor="middle" fill="currentColor">TRIO</text>
+              <text x="11" y="19.3" font-family="Arial, Helvetica, sans-serif" font-size="7.6" font-weight="800" text-anchor="middle" fill="currentColor">AI</text>
             </svg>
           </button>
         </div>
@@ -625,6 +635,11 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <div class="home-ai-ticker home-anim" id="home-ai-ticker" style="animation-delay:.95s">
+            <p class="home-ai-ticker-text" id="home-ai-ticker-text"><span class="home-ai-ticker-cursor" id="home-ai-ticker-cursor"></span></p>
+            <span class="home-ai-ticker-rule"></span>
           </div>
 
         </div>
@@ -3426,10 +3441,159 @@
       </div>
 
       <div id="page-batch-analysis" class="page-view" style="display:none;">
-        <div class="page-card"><div class="placeholder-page active">
-          <span class="ph-icon material-icons-round">query_stats</span>
-          <h2>Batch Analysis</h2><p>Batch analysis tools will appear here.</p>
-        </div></div>
+        <div class="reports-header">
+          <div class="reports-header-icon">
+            <span class="material-icons-round">query_stats</span>
+          </div>
+          <div class="reports-header-text">
+            <h1>Batch Analysis</h1>
+            <p>Upload an Excel file — it's saved to shared Google Drive and shown below for everyone</p>
+          </div>
+        </div>
+
+        <!-- Upload card -->
+        <div class="page-card batch-upload-card">
+          <input type="file" id="batch-analysis-file-input" accept=".xlsx,.xls,.csv" style="display:none;">
+          <div class="batch-upload-dropzone" id="batch-analysis-dropzone">
+            <span class="material-icons-round upload-icon">cloud_upload</span>
+            <div class="upload-text-primary">Drag &amp; drop an Excel file here, or click to browse</div>
+            <div class="upload-text-secondary">.xlsx, .xls or .csv — saved to shared Google Drive, visible to all users</div>
+          </div>
+          <div class="batch-file-status-bar" id="batch-analysis-file-status-bar" style="display:none;">
+            <div class="batch-file-status-info">
+              <span class="material-icons-round">description</span>
+              <div>
+                <div class="batch-file-status-name" id="batch-analysis-loaded-filename">—</div>
+                <div class="batch-file-status-meta" id="batch-analysis-loaded-meta">—</div>
+              </div>
+            </div>
+            <div class="batch-file-status-actions">
+              <button type="button" class="btn-refresh btn-save-drive" id="btn-save-batch-analysis-drive" style="display:none;">
+                <span class="material-icons-round">cloud_upload</span>
+                <span class="save-btn-label">Save to Google Drive</span>
+              </button>
+              <button type="button" class="btn-refresh" id="btn-reupload-batch-analysis">
+                <span class="material-icons-round">upload_file</span>
+                Re-upload
+              </button>
+              <button type="button" class="btn-refresh btn-refresh-danger" id="btn-clear-batch-analysis">
+                <span class="material-icons-round">delete_outline</span>
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save to Google Drive Password Modal -->
+        <div class="ba-modal-overlay" id="ba-password-modal" style="display: none;">
+          <div class="ba-modal-card">
+            <div class="ba-modal-header">
+              <div class="ba-modal-icon">
+                <span class="material-icons-round">lock</span>
+              </div>
+              <div class="ba-modal-title-wrap">
+                <h3>Authorization Required</h3>
+                <p>Enter password to save data to shared Google Drive</p>
+              </div>
+              <button type="button" class="ba-modal-close" id="ba-password-modal-close" title="Close">
+                <span class="material-icons-round">close</span>
+              </button>
+            </div>
+            <div class="ba-modal-body">
+              <div class="ba-input-group">
+                <label for="ba-password-input" class="ba-input-label">Security Password</label>
+                <div class="ba-input-wrap" id="ba-password-input-wrap">
+                  <span class="material-icons-round ba-input-icon">vpn_key</span>
+                  <input type="password" id="ba-password-input" placeholder="Enter password to confirm..." autocomplete="off" />
+                  <button type="button" class="ba-toggle-pw" id="ba-toggle-pw-btn" title="Toggle visibility">
+                    <span class="material-icons-round" id="ba-toggle-pw-icon">visibility</span>
+                  </button>
+                </div>
+                <div class="ba-modal-error" id="ba-password-error" style="display: none;">
+                  <span class="material-icons-round">error_outline</span>
+                  <span>Incorrect password. Access denied.</span>
+                </div>
+              </div>
+            </div>
+            <div class="ba-modal-footer">
+              <button type="button" class="btn-refresh btn-modal-cancel" id="ba-password-cancel-btn">Cancel</button>
+              <button type="button" class="btn-refresh btn-save-drive btn-modal-submit" id="ba-password-submit-btn">
+                <span class="material-icons-round">cloud_upload</span>
+                Confirm &amp; Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table card -->
+        <div class="page-card data-table-card batch-analysis-table-card">
+          <div class="dt-toolbar">
+            <div class="dt-toolbar-row dt-toolbar-filters">
+              <div class="dt-search-wrap">
+                <span class="material-icons-round dt-search-icon">search</span>
+                <input type="text" id="batch-analysis-search" class="dt-search-input" placeholder="Search across all columns…" />
+                <button class="dt-search-clear" id="batch-analysis-search-clear" title="Clear search" style="display:none;">
+                  <span class="material-icons-round">close</span>
+                </button>
+              </div>
+              <button type="button" class="btn-excel-icon" id="btn-download-batch-analysis-excel" title="Download as Excel (.xlsx)" aria-label="Download Excel" disabled>
+                <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                  <rect width="32" height="32" rx="6" fill="#1D6F42"/>
+                  <line x1="10" y1="8" x2="10" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="16" y1="8" x2="16" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="22" y1="8" x2="22" y2="24" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="13" x2="25" y2="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <line x1="7"  y1="19" x2="25" y2="19" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+                  <text x="16" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="900" fill="white" letter-spacing="-1">X</text>
+                  <circle cx="24" cy="24" r="7" fill="#155c35"/>
+                  <path d="M24 20v5M21.5 23l2.5 2.5 2.5-2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+              </button>
+              <button type="button" class="btn-refresh" id="btn-refresh-batch-analysis" title="Refresh from Drive">
+                <span class="material-icons-round">refresh</span>
+                Refresh
+              </button>
+            </div>
+            <div class="dt-toolbar-row dt-toolbar-bottom">
+              <div class="dt-page-size-wrap">
+                <label class="dt-page-size-label">Show</label>
+                <select id="batch-analysis-page-size" class="dt-page-size-select">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+                <label class="dt-page-size-label">entries</label>
+              </div>
+              <div class="dt-count-badge" id="batch-analysis-count-badge">— records</div>
+            </div>
+          </div>
+
+          <div class="dt-table-wrap" id="batch-analysis-table-wrap" aria-live="polite">
+            <div class="dt-empty-state" id="batch-analysis-empty-state">
+              <div class="ba-loader-box">
+                <div class="ba-loader-ring">
+                  <div class="ba-loader-icon-wrap">
+                    <span class="material-icons-round ba-loader-spin-icon">sync</span>
+                  </div>
+                </div>
+                <div class="ba-loader-text-wrap">
+                  <p class="ba-loader-msg">Loading shared Batch Analysis data</p>
+                  <div class="ba-loader-dots"><span></span><span></span><span></span></div>
+                </div>
+              </div>
+            </div>
+            <table class="dt-table batch-analysis-table" id="batch-analysis-table" style="display:none;">
+              <thead id="batch-analysis-thead"></thead>
+              <tbody id="batch-analysis-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="dt-footer" id="batch-analysis-footer" style="display:none;">
+            <div class="dt-info" id="batch-analysis-info">Showing 0 of 0 entries</div>
+            <div class="dt-pagination" id="batch-analysis-pagination"></div>
+          </div>
+        </div>
       </div>
 
       <div id="page-ims" class="page-view" style="display:none;">
@@ -3996,6 +4160,11 @@
       <!-- ============================================================ -->
       <div id="page-bai" class="page-view" style="display:none;"></div>
 
+      <!-- ============================================================ -->
+      <!-- TRIO AI PAGE (markup injected by Trio.js)                    -->
+      <!-- ============================================================ -->
+      <div id="page-trio" class="page-view" style="display:none;"></div>
+
     </main>
   </div>
 </div>
@@ -4004,14 +4173,25 @@
   FOR GOOGLE APPS SCRIPT: Replace with <?!= include('javascript'); ?>
   FOR STANDALONE USE: keep this tag as-is.
 -->
+<script>
+  // Required by batchAnalysis.js / batchDetails.js when the app is opened
+  // outside the Apps Script sandbox (google.script.run unavailable) — e.g.
+  // hosted standalone. Points to the published Apps Script Web App URL so
+  // "Save to Google Drive" can POST data via fetch() instead.
+  window.GAS_URL = 'https://script.google.com/macros/s/AKfycbx99oNMmHYn-jum8NEtkUFqYmR3nV0reWfL1MYC7GDeRxQJu-BbKJq56KW1KcmUoCjRNA/exec';
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 <script src="main.js"></script>
 <script src="pdf-fonts.js"></script>
 <script src="web.js"></script>
 <script src="AI.js"></script>
 <script src="Bai.js"></script>
+<script src="Trio.js"></script>
+<script src="batchDetails.js"></script>
+<script src="batchAnalysis.js"></script>
 
 </body>
 </html>
