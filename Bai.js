@@ -53,15 +53,18 @@
       + '.bai-clear-btn{display:flex;align-items:center;justify-content:center;background:var(--bai-bg);border:none;color:#cf3f45;border-radius:11px;width:38px;height:38px;padding:0;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:4px 4px 9px #c7cdd8,-4px -4px 9px #fff;transition:transform .18s,box-shadow .18s;}'
       + '.bai-clear-btn .material-icons-round{font-size:25px;}'
       + '.bai-clear-btn:hover{transform:translateY(-1px);box-shadow:inset 2px 2px 5px #c7cdd8,inset -2px -2px 5px #fff;}'
-      + '.bai-clear-btn .material-icons-round{font-size:16px;}'
+      + '.bai-clear-btn .material-icons-round{font-size:25px;}'
+      + '.bai-clear-confirm[hidden]{display:none;}.bai-clear-confirm{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(233,237,245,.3);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);}.bai-clear-confirm-card{width:min(360px,100%);padding:28px;border-radius:24px;background:#e9edf5;box-shadow:14px 14px 28px #b9c2d1,-12px -12px 25px #fff;display:flex;flex-direction:column;align-items:center;text-align:center;}.bai-clear-confirm-icon{width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:18px;background:#e9edf5;color:#cf3f45;box-shadow:inset 4px 4px 8px #c7cdd8,inset -4px -4px 8px #fff;font-size:29px;}.bai-clear-confirm-card h2{margin:16px 0 7px;font-size:19px;color:#243454;}.bai-clear-confirm-card p{margin:0;color:#75829b;font-size:13px;line-height:1.55;}.bai-clear-confirm-actions{display:flex;gap:10px;width:100%;margin-top:22px;}.bai-clear-confirm-actions button{flex:1;border:0;border-radius:12px;padding:11px 12px;font:700 13px inherit;cursor:pointer;}.bai-clear-cancel{color:#0d6b39;background:#e9edf5;box-shadow:4px 4px 9px #c7cdd8,-4px -4px 9px #fff;}.bai-clear-approve{color:#fff;background:linear-gradient(145deg,#e65d63,#b62f37);box-shadow:4px 4px 9px #c7cdd8,-3px -3px 7px #fff;}'
+      + '.bai-clear-confirm{background:rgba(255,244,232,.34);}.bai-clear-confirm-card{background:#fff4e8;box-shadow:14px 14px 28px #dfc9b7,-12px -12px 25px #fffdf9;}.bai-clear-confirm-icon,.bai-clear-cancel{background:#fff4e8;}.bai-clear-confirm-icon{box-shadow:inset 4px 4px 8px #e1c8b4,inset -4px -4px 8px #fffdf9;}.bai-clear-confirm-actions button{transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;}.bai-clear-cancel{box-shadow:4px 4px 9px #dfc9b7,-4px -4px 9px #fffdf9;}.bai-clear-cancel:hover,.bai-clear-approve:hover{transform:translateY(-2px);filter:brightness(1.04);}.bai-clear-cancel:active{transform:translateY(1px);box-shadow:inset 3px 3px 7px #dfc9b7,inset -3px -3px 7px #fffdf9;}.bai-clear-approve:active{transform:translateY(1px) scale(.98);box-shadow:inset 3px 3px 7px rgba(115,25,31,.38),inset -2px -2px 5px rgba(255,255,255,.18);}'
       + '.bai-online-badge{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#52617b;padding:8px 11px;border-radius:11px;box-shadow:inset 2px 2px 5px #c7cdd8,inset -2px -2px 5px #fff;}'
       + '.bai-online-dot{width:8px;height:8px;border-radius:50%;background:#27c77b;box-shadow:0 0 0 3px rgba(39,199,123,.16);flex-shrink:0;}'
       + '.bai-chat-shell{display:flex;flex:1;min-height:0;margin:22px 24px;background:linear-gradient(145deg,#f0faf3,#dcefe1);border-radius:28px;box-shadow:14px 14px 28px #bcdcc6,-14px -14px 28px #fffdf9;overflow:hidden;}'
-      + '.bai-chat-shell,.bai-content-scroll{scrollbar-width:none;-ms-overflow-style:none;}'
-      + '.bai-chat-shell::-webkit-scrollbar,.bai-content-scroll::-webkit-scrollbar{display:none;width:0;height:0;}'
+      + '.bai-chat-shell,.bai-content-scroll{scrollbar-width:thin;scrollbar-color:#43d17c transparent;}'
+      + '.bai-chat-shell::-webkit-scrollbar,.bai-content-scroll::-webkit-scrollbar{width:5px;}.bai-chat-shell::-webkit-scrollbar-track,.bai-content-scroll::-webkit-scrollbar-track{background:rgba(31,157,87,.08);border-radius:999px;}.bai-chat-shell::-webkit-scrollbar-thumb,.bai-content-scroll::-webkit-scrollbar-thumb{min-height:36px;background:linear-gradient(180deg,#78eaa3,#1f9d57);border:1px solid transparent;border-radius:999px;background-clip:padding-box;}.bai-chat-shell::-webkit-scrollbar-button,.bai-content-scroll::-webkit-scrollbar-button{display:none;}'
       + '.bai-ai-sidebar{width:310px;flex-shrink:0;padding:22px 18px;background:linear-gradient(155deg,#f3fbf5,#dbeee0);border-right:1px solid rgba(178,212,190,.34);display:flex;flex-direction:column;overflow:hidden;}'
-      + '.bai-chat-main{display:flex;flex:1;flex-direction:column;min-width:0;background:rgba(245,251,247,.3);}'
+      + '.bai-chat-main{display:flex;flex:1;flex-direction:column;min-width:0;background:rgba(245,251,247,.3);position:relative;}'
       + '.bai-content-scroll{flex:1;overflow-y:auto;padding:28px 24px 42px;display:flex;flex-direction:column;min-height:0;}'
+      + '.bai-scroll-latest{position:absolute;right:26px;bottom:92px;z-index:3;width:42px;height:42px;padding:0;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bai-bg);color:var(--bai-green);box-shadow:5px 5px 11px #c7cdd8,-4px -4px 9px #fff;cursor:pointer;opacity:0;visibility:hidden;transform:translateY(10px) scale(.9);transition:opacity .2s ease,transform .2s ease,visibility .2s;}.bai-scroll-latest.is-visible{opacity:1;visibility:visible;transform:translateY(0) scale(1);}.bai-scroll-latest:hover{color:var(--bai-green-dark);transform:translateY(-2px) scale(1.04);}.bai-scroll-latest:active{transform:translateY(1px) scale(.97);box-shadow:inset 3px 3px 7px #c7cdd8,inset -3px -3px 7px #fff;}.bai-scroll-latest .material-icons-round{font-size:25px;}'
       + '.bai-header-row{display:flex;flex-direction:column;align-items:flex-start;gap:17px;margin:0;width:100%;padding:25px 22px;border-radius:21px;background:linear-gradient(145deg,#f8fdf9,#ddefe2);box-shadow:inset 5px 5px 10px rgba(178,212,190,.22),inset -5px -5px 10px rgba(255,255,255,.76);flex-shrink:0;position:relative;overflow:hidden;}'
       + '.bai-sidebar-image-wrap{display:flex;align-items:flex-end;justify-content:center;margin-top:auto;padding:22px 0 2px;min-height:0;}'
       + '.bai-sidebar-image{display:block;width:136%;max-width:none;height:auto;max-height:340px;object-fit:contain;object-position:center bottom;border-radius:18px;filter:drop-shadow(7px 9px 10px rgba(70,120,90,.18));}'
@@ -82,6 +85,7 @@
       + '.bai-welcome-sparkle{font-size:34px;color:var(--bai-green);margin-bottom:12px;display:inline-flex;width:62px;height:62px;align-items:center;justify-content:center;border-radius:20px;background:#eafaf1;box-shadow:inset 5px 5px 10px #c3e3cc,inset -5px -5px 10px #fffdf9;}'
       + '.bai-welcome-sparkle .bai-ai-mark{width:34px;height:34px;}'
       + '.bai-welcome-card h2{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:0 0 7px;color:var(--bai-ink);}'
+      + '.bai-greet-icon{display:inline-block;vertical-align:-5px;margin-left:5px;color:var(--bai-green);}'
       + '.bai-welcome-card > p{font-size:13px;color:var(--bai-muted);margin:0;font-weight:600;}'
       + '.bai-chat-log{display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;width:100%;max-width:1120px;margin:0 auto;}'
       + '.bai-msg{display:flex;gap:10px;max-width:78%;align-items:flex-start;flex-shrink:0;}'
@@ -105,6 +109,8 @@
       + '.bai-input-row{display:flex;align-items:center;gap:10px;background:var(--bai-bg);border:none;border-radius:18px;padding:9px 9px 9px 14px;max-width:1120px;margin:auto;box-shadow:inset 6px 6px 12px #c7cdd8,inset -6px -6px 12px #fff;}'
       + '.bai-icon-btn{background:var(--bai-bg);border:none;color:#8795ae;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;flex-shrink:0;box-shadow:3px 3px 6px #c7cdd8,-3px -3px 6px #fff;transition:transform .15s,box-shadow .15s,color .15s;}'
       + '.bai-icon-btn:hover{color:var(--bai-green-dark);transform:translateY(-1px);}'
+      + '#bai-suggest-btn .material-icons-round{color:var(--bai-green);animation:bai-suggest-blink 1.7s ease-in-out infinite;}'
+      + '@keyframes bai-suggest-blink{0%,100%{opacity:.58;filter:drop-shadow(0 0 0 rgba(31,157,87,0));}50%{opacity:1;filter:drop-shadow(0 0 5px rgba(31,157,87,.78));}}'
       + '.bai-chat-textarea{flex:1;resize:none;border:none;padding:8px 4px;font-size:13.5px;font-family:inherit;line-height:1.5;max-height:120px;outline:none;background:transparent;color:var(--bai-ink);}'
       + '.bai-chat-textarea::placeholder{color:#8794aa;}'
       + '.bai-send-btn{width:40px;height:40px;border-radius:13px;border:none;background:linear-gradient(145deg,#2fbf6f,#0d6b39);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:5px 5px 10px #b9c2d2,-3px -3px 7px #fff,inset 1px 1px 1px rgba(255,255,255,.28);transition:transform .15s,opacity .15s;}'
@@ -148,6 +154,59 @@
     return name.split(' ')[0];
   }
 
+  // Small line-icon set (stroke-based, inherits color via currentColor) used
+  // in place of emoji for the welcome-card greeting.
+  var GREET_ICONS = {
+    sun: '<circle cx="12" cy="12" r="4.3"></circle><line x1="12" y1="2.5" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="21.5"></line><line x1="4.6" y1="4.6" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.4" y2="19.4"></line><line x1="2.5" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="21.5" y2="12"></line><line x1="4.6" y1="19.4" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.4" y2="4.6"></line>',
+    sunrise: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.6" y1="10.6" x2="6" y2="12"></line><line x1="1.5" y1="18" x2="4" y2="18"></line><line x1="20" y1="18" x2="22.5" y2="18"></line><line x1="18" y1="12" x2="19.4" y2="10.6"></line><line x1="2" y1="22" x2="22" y2="22"></line><polyline points="8.5 6 12 2.5 15.5 6"></polyline>',
+    sunset: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="9" x2="12" y2="2"></line><line x1="4.6" y1="10.6" x2="6" y2="12"></line><line x1="1.5" y1="18" x2="4" y2="18"></line><line x1="20" y1="18" x2="22.5" y2="18"></line><line x1="18" y1="12" x2="19.4" y2="10.6"></line><line x1="2" y1="22" x2="22" y2="22"></line><polyline points="15.5 5.5 12 9 8.5 5.5"></polyline>',
+    moon: '<path d="M20.5 13.4A8.5 8.5 0 1 1 10.6 3.5a6.7 6.7 0 0 0 9.9 9.9z"></path>',
+    feather: '<path d="M19.8 12.2a5.7 5.7 0 0 0-8-8L5.3 10.7v8h8z"></path><line x1="15.4" y1="7.6" x2="3.3" y2="19.7"></line><line x1="16.7" y1="14.5" x2="9" y2="14.5"></line>',
+    star: '<polygon points="12 2.5 14.8 8.4 21.2 9.3 16.6 13.8 17.7 20.2 12 17.2 6.3 20.2 7.4 13.8 2.8 9.3 9.2 8.4 12 2.5"></polygon>',
+    owl: '<path d="M12 3.2c-3.7 0-6.5 2.9-6.5 6.6v3.6a6.5 6.5 0 0 0 13 0v-3.6c0-3.7-2.8-6.6-6.5-6.6z"></path><path d="M7 5.6 5.2 3M17 5.6 18.8 3"></path><path fill="currentColor" stroke="none" d="M9.4 12a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zM14.6 12a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6z"></path><path fill="currentColor" stroke="none" d="M12 13.6l-1.1 2.1h2.2z"></path>',
+    candle: '<path fill="currentColor" stroke="none" d="M12 2.3c1.3 1.9 2 3.3 2 4.6a2 2 0 1 1-4 0c0-1.3.7-2.7 2-4.6z"></path><rect x="9.7" y="8.6" width="4.6" height="10.6" rx="1.1"></rect><line x1="6.5" y1="19.2" x2="17.5" y2="19.2"></line>',
+    wave: '<path d="M8 12.5v-7a1.4 1.4 0 1 1 2.8 0v5.5"></path><path d="M10.8 10.6V4.4a1.4 1.4 0 1 1 2.8 0v6.2"></path><path d="M13.6 10.6V5.8a1.4 1.4 0 1 1 2.8 0v6.4"></path><path d="M16.4 12.2v-3a1.4 1.4 0 1 1 2.8 0v6.3c0 3.4-2.4 6-6 6h-1.4c-2 0-3.2-.6-4.4-2.1L4 14.7a1.5 1.5 0 0 1 2.2-2l1.8 1.9"></path>'
+  };
+
+  function greetIconMarkup_(key) {
+    var body = GREET_ICONS[key] || GREET_ICONS.star;
+    return '<svg class="bai-greet-icon" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>';
+  }
+
+  // Picks a random, time-of-day-aware greeting so the welcome card feels
+  // fresh on every visit instead of always saying "Hello".
+  function getTimeGreeting() {
+    var hour = new Date().getHours();
+    var options;
+    if (hour >= 5 && hour < 12) {
+      options = [
+        { text: 'Good Morning', icon: 'sun' },
+        { text: 'Rise and Shine', icon: 'sunrise' },
+        { text: 'Early Bird', icon: 'feather' },
+        { text: 'Hello', icon: 'wave' }
+      ];
+    } else if (hour >= 12 && hour < 17) {
+      options = [
+        { text: 'Good Afternoon', icon: 'sun' },
+        { text: 'Hope Your Day Is Going Well', icon: 'star' },
+        { text: 'Hello', icon: 'wave' }
+      ];
+    } else if (hour >= 17 && hour < 21) {
+      options = [
+        { text: 'Good Evening', icon: 'sunset' },
+        { text: 'Winding Down', icon: 'moon' },
+        { text: 'Hello', icon: 'wave' }
+      ];
+    } else {
+      options = [
+        { text: 'Night Owl', icon: 'owl' },
+        { text: 'Working Late', icon: 'moon' },
+        { text: 'Burning the Midnight Oil', icon: 'candle' }
+      ];
+    }
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
   function buildMarkup() {
     var container = document.getElementById('page-bai');
     if (!container || built) return;
@@ -174,12 +233,13 @@
           '<div id="bai-empty-state">' +
             '<div class="bai-welcome-card">' +
               '<span class="bai-welcome-sparkle">' + BAI_ICON_SVG + '</span>' +
-              '<h2>Hello, ' + escapeHtml(getUserFirstName()) + '! \uD83D\uDC4B</h2>' +
+              '<h2>' + (function () { var g = getTimeGreeting(); return g.text + ', ' + escapeHtml(getUserFirstName()) + '! ' + greetIconMarkup_(g.icon); })() + '</h2>' +
               '<p>How can I help you with batch analysis today?</p>' +
             '</div>' +
           '</div>' +
           '<div class="bai-chat-log" id="bai-chat-log" style="display:none;"></div>' +
         '</div>' +
+        '<button type="button" class="bai-scroll-latest" id="bai-scroll-latest" title="Go to latest message" aria-label="Go to latest message"><span class="material-icons-round">keyboard_double_arrow_down</span></button>' +
         '<div class="bai-suggest-panel" id="bai-suggest-panel"></div>' +
         '<div class="bai-attach-chips" id="bai-attach-chips"></div>' +
         '<div class="bai-input-bar">' +
@@ -194,7 +254,8 @@
         '</div>' +
         '</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      '<div class="bai-clear-confirm" id="bai-clear-confirm" hidden><div class="bai-clear-confirm-card" role="dialog" aria-modal="true" aria-labelledby="bai-clear-confirm-title"><span class="material-icons-round bai-clear-confirm-icon">delete_outline</span><h2 id="bai-clear-confirm-title">Clear this chat?</h2><p>Are you sure you want to clear this chat? This action cannot be undone.</p><div class="bai-clear-confirm-actions"><button type="button" class="bai-clear-cancel" id="bai-clear-cancel">No, keep it</button><button type="button" class="bai-clear-approve" id="bai-clear-approve">Yes, clear chat</button></div></div></div>';
 
     built = true;
     wireEvents();
@@ -288,9 +349,20 @@
     if (el) el.remove();
   }
 
-  function scrollToBottom() {
+  function updateScrollToLatestButton() {
     var scroller = document.getElementById('bai-content-scroll');
-    if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    var button = document.getElementById('bai-scroll-latest');
+    if (!scroller || !button) return;
+    var distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    button.classList.toggle('is-visible', distanceFromBottom > 96);
+  }
+
+  function scrollToBottom(smooth) {
+    var scroller = document.getElementById('bai-content-scroll');
+    if (!scroller) return;
+    if (smooth && scroller.scrollTo) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+    else scroller.scrollTop = scroller.scrollHeight;
+    setTimeout(updateScrollToLatestButton, smooth ? 350 : 0);
   }
 
   // ---------------------------------------------------------------------
@@ -420,10 +492,15 @@
     var input = document.getElementById('bai-chat-input');
     var sendBtn = document.getElementById('bai-send-btn');
     var clearBtn = document.getElementById('bai-clear-btn');
+    var clearConfirm = document.getElementById('bai-clear-confirm');
+    var clearCancel = document.getElementById('bai-clear-cancel');
+    var clearApprove = document.getElementById('bai-clear-approve');
     var backBtn = document.getElementById('bai-back-btn');
     var attachBtn = document.getElementById('bai-attach-btn');
     var fileInput = document.getElementById('bai-file-input');
     var suggestBtn = document.getElementById('bai-suggest-btn');
+    var scrollLatestBtn = document.getElementById('bai-scroll-latest');
+    var contentScroller = document.getElementById('bai-content-scroll');
 
     if (input) {
       input.addEventListener('input', function () { autoGrow(input); });
@@ -450,12 +527,15 @@
       });
     }
     if (sendBtn) sendBtn.addEventListener('click', sendFromInput);
-    if (clearBtn) {
-      clearBtn.addEventListener('click', function () {
+    if (clearBtn && clearConfirm) clearBtn.addEventListener('click', function () { clearConfirm.hidden = false; });
+    if (clearCancel && clearConfirm) clearCancel.addEventListener('click', function () { clearConfirm.hidden = true; });
+    if (clearApprove && clearConfirm) {
+      clearApprove.addEventListener('click', function () {
         history = [];
         selectedFiles = [];
         renderAttachChips();
         showEmptyState();
+        clearConfirm.hidden = true;
       });
     }
     if (backBtn) backBtn.addEventListener('click', closeBaiPage);
@@ -470,6 +550,8 @@
       });
     }
     if (suggestBtn) suggestBtn.addEventListener('click', toggleSuggestPanel);
+    if (scrollLatestBtn) scrollLatestBtn.addEventListener('click', function () { scrollToBottom(true); });
+    if (contentScroller) contentScroller.addEventListener('scroll', updateScrollToLatestButton, { passive: true });
 
   }
 
@@ -478,13 +560,31 @@
   // sidebar nav-item system, since the launcher lives in the topbar rather
   // than the sidebar — same pattern as ai.js).
   // ---------------------------------------------------------------------
+  function isBaiPageOpen_() {
+    var target = document.getElementById('page-bai');
+    return !!(target && target.style.display !== 'none' && built);
+  }
+
   function openBaiPage() {
+    // Admin-controlled access (USERS sheet Column K). window.FMS may not be
+    // ready yet on very first paint, so an unavailable check fails open
+    // (same "unrestricted until an admin opts in" convention as elsewhere).
+    if (window.FMS && typeof window.FMS.hasAiAccess === 'function' && !window.FMS.hasAiAccess('ai-batch-analysis')) {
+      if (typeof window.FMS.showToast === 'function') {
+        window.FMS.showToast('error', 'Access Restricted', 'You do not have access to Batch Analysis with AI. Contact an admin.');
+      }
+      return;
+    }
+
     injectStyles();
     buildMarkup();
 
     lastActiveNavItem = document.querySelector('.nav-item.active[data-page]');
     document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
     document.querySelectorAll('.page-view').forEach(function (v) { v.style.display = 'none'; });
+    var contentArea = document.querySelector('.content-area');
+    if (contentArea) contentArea.classList.remove('ai-chat--preprod', 'ai-chat--trio');
+    if (contentArea) contentArea.classList.add('ai-chat-active', 'ai-chat--batch');
 
     var target = document.getElementById('page-bai');
     if (target) target.style.display = '';
@@ -505,6 +605,12 @@
   function init() {
     var btn = document.getElementById('topbar-bai-btn');
     if (btn) btn.addEventListener('click', openBaiPage);
+
+    // Access revoked mid-session (see app.js reEvaluateAiAccess_) while this
+    // page happens to be open right now — close it back to the previous view.
+    window.addEventListener('fms:ai-access-revoked', function (evt) {
+      if (evt && evt.detail && evt.detail.id === 'ai-batch-analysis' && isBaiPageOpen_()) closeBaiPage();
+    });
   }
 
   if (document.readyState === 'loading') {
