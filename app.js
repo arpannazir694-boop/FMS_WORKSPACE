@@ -22,6 +22,7 @@ var PURCHASE_URL = 'https://script.google.com/macros/s/AKfycbwjHUTJKOh3_P0mXD1Kk
 var SESSION_KEY = 'fms_user';
 var ACCESS_KEY  = 'fms_access'; // JSON array of tab names this user is allowed to open (set by login.html)
 var KPI_ACCESS_KEY = 'fms_kpi_access'; // JSON array of KPI-card ids this user is allowed to see (set by login.html)
+var AI_ACCESS_KEY = 'fms_ai_access'; // JSON array of AI-feature names this user is allowed to open (set by login.html)
 
 function getSession() {
     try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; }
@@ -34,6 +35,8 @@ function clearSession() {
     try { localStorage.removeItem(ACCESS_KEY); } catch (e) {}
     try { sessionStorage.removeItem(KPI_ACCESS_KEY); } catch (e) {}
     try { localStorage.removeItem(KPI_ACCESS_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(AI_ACCESS_KEY); } catch (e) {}
+    try { localStorage.removeItem(AI_ACCESS_KEY); } catch (e) {}
 }
 
 // Admin-controlled tab access (USERS sheet, Column I) — an array of tab
@@ -77,6 +80,26 @@ function setKpiAccess(kpiAccess) {
     try { sessionStorage.setItem(KPI_ACCESS_KEY, json); } catch (e) {}
     try {
         if (localStorage.getItem(SESSION_KEY)) localStorage.setItem(KPI_ACCESS_KEY, json);
+    } catch (e) {}
+}
+
+// Admin-controlled per-AI-feature access (USERS sheet, Column K) — an array
+// of AI-feature names such as ["Pre-Production AI", "Trio AI"]. An EMPTY
+// array means "no restriction" — same convention as getKpiAccess() above.
+function getAiAccess() {
+    try {
+        var raw = sessionStorage.getItem(AI_ACCESS_KEY) || localStorage.getItem(AI_ACCESS_KEY);
+        if (!raw) return [];
+        var arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+}
+
+function setAiAccess(aiAccess) {
+    var json = JSON.stringify(Array.isArray(aiAccess) ? aiAccess : []);
+    try { sessionStorage.setItem(AI_ACCESS_KEY, json); } catch (e) {}
+    try {
+        if (localStorage.getItem(SESSION_KEY)) localStorage.setItem(AI_ACCESS_KEY, json);
     } catch (e) {}
 }
 
@@ -1434,6 +1457,8 @@ function initNav() {
         if (!page) return;
         document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
         item.classList.add('active');
+        var contentArea = document.querySelector('.content-area');
+        if (contentArea) contentArea.classList.remove('ai-chat-active', 'ai-chat--preprod', 'ai-chat--batch', 'ai-chat--trio');
         document.querySelectorAll('.page-view').forEach(function (v) { v.style.display = 'none'; });
         var target = document.getElementById('page-' + page);
         if (target) target.style.display = '';
@@ -1487,41 +1512,11 @@ var homeTypeTimer = null;
 var homeWorkspaceTimer = null;
 var homeWorkspaceStartTimer = null;
 
-function animateHomeWorkspace() {
+function setHomeWorkspaceStatic() {
     var workspaceEl = document.getElementById('home-workspace-text');
     if (!workspaceEl) return;
-
-    var word = 'Workspace';
-    var colorIndex = 0;
-    workspaceEl.textContent = word;
-    workspaceEl.className = 'home-workspace-text';
-
-    function runCycle() {
-        var index = word.length;
-        homeWorkspaceTimer = setInterval(function () {
-            index--;
-            workspaceEl.textContent = word.slice(0, index);
-            if (index === 0) {
-                clearInterval(homeWorkspaceTimer);
-                homeWorkspaceStartTimer = setTimeout(function () {
-                    colorIndex = (colorIndex % 6) + 1;
-                    workspaceEl.className = 'home-workspace-text workspace-color-' + colorIndex;
-                    homeWorkspaceTimer = setInterval(function () {
-                        index++;
-                        workspaceEl.textContent = word.slice(0, index);
-                        if (index === word.length) {
-                            clearInterval(homeWorkspaceTimer);
-                            homeWorkspaceTimer = null;
-                            homeWorkspaceStartTimer = setTimeout(runCycle, 1800);
-                        }
-                    }, 105);
-                }, 350);
-            }
-        }, 70);
-    }
-
-    // Let the title settle briefly, then continuously erase and retype it.
-    homeWorkspaceStartTimer = setTimeout(runCycle, 1200);
+    workspaceEl.textContent = 'Workspace';
+    workspaceEl.className = 'home-workspace-text workspace-color-green';
 }
 
 function typeHomeWelcomeMessage() {
@@ -1555,7 +1550,7 @@ function initHomeHero() {
 
     if (homeWorkspaceTimer) { clearInterval(homeWorkspaceTimer); homeWorkspaceTimer = null; }
     if (homeWorkspaceStartTimer) { clearTimeout(homeWorkspaceStartTimer); homeWorkspaceStartTimer = null; }
-    animateHomeWorkspace();
+    setHomeWorkspaceStatic();
 
     // Restart the entrance animation every time Home is opened
     hero.classList.remove('is-active');
@@ -1564,6 +1559,94 @@ function initHomeHero() {
 
     // Typing effect starts once the welcome card has faded in
     setTimeout(typeHomeWelcomeMessage, 650);
+
+    // AI news ticker starts once its own fade-in has finished
+    setTimeout(runHomeAiTicker, 950);
+}
+
+// ---------------------------------------------------------------------------
+// Home — floating "AI News" ticker (typewriter loop between a headline and
+// a short "AI is Coming" teaser with an animated ellipsis)
+// ---------------------------------------------------------------------------
+var HOME_AI_TICKER_MESSAGES = [
+    'Less Effort. More Intelligence. Better Business.',
+    'AI is Coming'
+];
+var homeAiTickerTimer = null;
+var homeAiTickerRunId = 0;
+
+function runHomeAiTicker() {
+    var textEl = document.getElementById('home-ai-ticker-text');
+    var cursor = document.getElementById('home-ai-ticker-cursor');
+    if (!textEl) return;
+
+    // Bump the run id so any previously-scheduled steps from an earlier
+    // call (e.g. re-opening the Home tab) stop touching the DOM.
+    homeAiTickerRunId++;
+    var runId = homeAiTickerRunId;
+    if (homeAiTickerTimer) { clearTimeout(homeAiTickerTimer); homeAiTickerTimer = null; }
+
+    var msgIndex = 0;
+
+    function schedule(fn, delay) {
+        homeAiTickerTimer = setTimeout(function () {
+            if (runId !== homeAiTickerRunId) return;
+            fn();
+        }, delay);
+    }
+
+    function setPlainText(str) {
+        textEl.textContent = str;
+        if (cursor) textEl.appendChild(cursor);
+    }
+
+    function typeStep(message, i, onDone) {
+        setPlainText(message.slice(0, i));
+        if (i >= message.length) { schedule(onDone, 550); return; }
+        schedule(function () { typeStep(message, i + 1, onDone); }, 34);
+    }
+
+    function eraseStep(message, i, onDone) {
+        setPlainText(message.slice(0, i));
+        if (i <= 0) { schedule(onDone, 250); return; }
+        schedule(function () { eraseStep(message, i - 1, onDone); }, 18);
+    }
+
+    function showAnimatedDots(onDone) {
+        // "AI is Coming" is already on screen — append a pulsing ellipsis
+        // instead of typing plain dots, then hold before erasing.
+        textEl.innerHTML =
+        HOME_AI_TICKER_MESSAGES[1] +
+        '<span class="home-ai-ticker-dots"><span>.</span><span>.</span><span>.</span></span>';
+        schedule(onDone, 2600);
+    }
+
+    function runCycle() {
+        var message = HOME_AI_TICKER_MESSAGES[msgIndex];
+        if (msgIndex === 1) {
+        // Second message gets the animated-dots treatment after typing.
+        typeStep(message, 0, function () {
+            showAnimatedDots(function () {
+            eraseStep(message, message.length, function () {
+                msgIndex = (msgIndex + 1) % HOME_AI_TICKER_MESSAGES.length;
+                schedule(runCycle, 300);
+            });
+            });
+        });
+        } else {
+        typeStep(message, 0, function () {
+            schedule(function () {
+            eraseStep(message, message.length, function () {
+                msgIndex = (msgIndex + 1) % HOME_AI_TICKER_MESSAGES.length;
+                schedule(runCycle, 300);
+            });
+            }, 2100);
+        });
+        }
+    }
+
+    setPlainText('');
+    schedule(runCycle, 300);
 }
 
 // ---------------------------------------------------------------------------
@@ -1584,7 +1667,7 @@ var ALL_NAV_ITEMS = [
     { page: 'purchase',       label: 'Purchase',            icon: 'request_quote',            defaultOn: false },
     { page: 'store',          label: 'Store',               icon: 'storefront',               defaultOn: false },
     { page: 'maintenance',    label: 'Maintenance',         icon: 'build',                    defaultOn: false },
-    { page: 'batch-analysis', label: 'Batch Analysis',      icon: 'query_stats',              defaultOn: false },
+    { page: 'batch-analysis', label: 'Batch Analysis',      icon: 'query_stats',              defaultOn: true },
     { page: 'ims',            label: 'IMS',                 icon: 'fact_check',               defaultOn: false }
 ];
 
@@ -1704,6 +1787,84 @@ function hasKpiAccess(kpiId) {
     var list = normalizeKpiAccessList_(getKpiAccess());
     if (!list.length) return true; // no restriction set for this user
     return list.indexOf(kpiId) !== -1;
+}
+
+// ---------------------------------------------------------------------------
+// Per-AI-feature access (same pattern as the per-KPI-card access above, one
+// level up). Driven by USERS sheet Column K, delivered at login/poll as
+// aiAccess (an array of AI-feature names). Gates the 3 topbar AI launchers:
+//   - Pre-Production AI      (button#topbar-ai-btn,   AI.js)
+//   - Batch Analysis with AI (button#topbar-bai-btn,  Bai.js)
+//   - Trio AI                (button#topbar-trio-btn, Trio.js)
+//
+// IMPORTANT: an EMPTY aiAccess list means "no restriction" for that user —
+// this keeps every existing user unaffected until an admin deliberately
+// picks specific AI features for someone in Column K.
+// ---------------------------------------------------------------------------
+var ALL_AI_ITEMS = [
+    { id: 'ai-preprod',         label: 'Pre-Production AI',      wrapId: 'topbar-ai-wrap' },
+    { id: 'ai-batch-analysis',  label: 'Batch Analysis with AI', wrapId: 'topbar-bai-wrap' },
+    { id: 'ai-trio',            label: 'Trio AI',                wrapId: 'topbar-trio-wrap' }
+];
+
+var AI_ID_TO_LABEL = {};
+var AI_LABEL_TO_ID = {};
+ALL_AI_ITEMS.forEach(function (item) {
+    AI_ID_TO_LABEL[item.id] = item.label;
+    AI_LABEL_TO_ID[item.label.trim().toLowerCase()] = item.id;
+});
+
+// Column K entries may be typed as either the id (e.g. "ai-trio") or the
+// human-readable label (e.g. "Trio AI") — admins pick from a dropdown of
+// labels, so normalize everything to ids here (mirrors normalizeKpiAccessList_).
+function normalizeAiAccessList_(rawList) {
+    return rawList.map(function (entry) {
+        var key = String(entry).trim().toLowerCase();
+        if (AI_LABEL_TO_ID.hasOwnProperty(key)) return AI_LABEL_TO_ID[key];
+        return String(entry).trim();
+    });
+}
+
+// True if the current user may open the AI feature with this id. Ids not
+// present in ALL_AI_ITEMS are unrestricted.
+function hasAiAccess(aiId) {
+    if (!aiId || !AI_ID_TO_LABEL.hasOwnProperty(aiId)) return true;
+    var list = normalizeAiAccessList_(getAiAccess());
+    if (!list.length) return true; // no restriction set for this user
+    return list.indexOf(aiId) !== -1;
+}
+
+function aiAccessDeniedLabelFor_(aiId) {
+    return AI_ID_TO_LABEL[aiId] || 'This AI feature';
+}
+
+// Shows/hides each of the 3 topbar AI launcher buttons based on the current
+// user's aiAccess list. Unlike KPI cards (which stay visible and are gated
+// at open-time), these topbar icons are hidden outright when restricted —
+// there's no "card" to click through, so hiding the icon is the clearest
+// signal. Also closes/collapses the corresponding chat page if it happens
+// to be open when access is revoked mid-session (see reEvaluateAiAccess_).
+function applyAiAccess() {
+    ALL_AI_ITEMS.forEach(function (item) {
+        var wrap = document.getElementById(item.wrapId);
+        if (!wrap) return;
+        wrap.style.display = hasAiAccess(item.id) ? '' : 'none';
+    });
+}
+
+// Re-checks all 3 AI features against the latest aiAccess list and, if any
+// AI page is currently open on screen but access to it was just revoked,
+// fires a global event so that AI.js / Bai.js / Trio.js (each a separate
+// closure) can close their own page and return to the previous view. Access
+// being GRANTED mid-session needs no special handling here — applyAiAccess()
+// simply un-hides the topbar icon again.
+function reEvaluateAiAccess_() {
+    ALL_AI_ITEMS.forEach(function (item) {
+        if (hasAiAccess(item.id)) return;
+        try {
+            window.dispatchEvent(new CustomEvent('fms:ai-access-revoked', { detail: { id: item.id } }));
+        } catch (e) {}
+    });
 }
 
 // KPI cards are NEVER hidden for restricted users anymore — every card in
@@ -1966,12 +2127,15 @@ function pollAccess_(user) {
         if (!result || !result.success) return;
         var tabChanged = Array.isArray(result.access) && !accessListsEqual_(result.access, getAccess());
         var kpiChanged = Array.isArray(result.kpiAccess) && !accessListsEqual_(result.kpiAccess, getKpiAccess());
-        if (!tabChanged && !kpiChanged) return; // nothing changed, skip a no-op DOM pass
+        var aiChanged  = Array.isArray(result.aiAccess) && !accessListsEqual_(result.aiAccess, getAiAccess());
+        if (!tabChanged && !kpiChanged && !aiChanged) return; // nothing changed, skip a no-op DOM pass
         if (tabChanged) setAccess(result.access);
         if (kpiChanged) setKpiAccess(result.kpiAccess);
+        if (aiChanged) setAiAccess(result.aiAccess);
         reEvaluateCurrentPageAccess_();
         applyKpiCardAccess();
         if (kpiChanged) reEvaluateCurrentKpiAccess_();
+        if (aiChanged) { applyAiAccess(); reEvaluateAiAccess_(); }
     }
     if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run.withSuccessHandler(onResult).withFailureHandler(function () {}).getUserAccess(user);
@@ -1986,6 +2150,7 @@ function initAccessPolling() {
     var user = getSession();
     if (!user) return;
     applyKpiCardAccess(); // apply immediately on load, before the first poll round-trip
+    applyAiAccess();
     pollAccess_(user);
     setInterval(function () { pollAccess_(user); }, ACCESS_POLL_MS);
 }
@@ -9281,7 +9446,9 @@ window.FMS = {
     excelRowColor_:   excelRowColor_,
     loadExcelJs:      loadExcelJs,
     showBatchListKpiView: showBatchListKpiView,
-    applyKpiCardAccess: applyKpiCardAccess
+    applyKpiCardAccess: applyKpiCardAccess,
+    hasAiAccess:         hasAiAccess,
+    aiAccessDeniedLabelFor: aiAccessDeniedLabelFor_
 };
 
 })();
