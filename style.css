@@ -2137,6 +2137,16 @@ input, textarea, [contenteditable="true"] {
 .content-area::-webkit-scrollbar-track { background: transparent; }
 .content-area::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
 
+/* A compact, colour-matched scrollbar appears only when an AI chat needs it. */
+.content-area.ai-chat-active { scrollbar-width: thin; scrollbar-color: var(--ai-chat-scroll) transparent; }
+.content-area.ai-chat--preprod { --ai-chat-scroll: #3b9eff; }
+.content-area.ai-chat--batch { --ai-chat-scroll: #43d17c; }
+.content-area.ai-chat--trio { --ai-chat-scroll: #a78bfa; }
+.content-area.ai-chat-active::-webkit-scrollbar { display: block; width: 6px; }
+.content-area.ai-chat-active::-webkit-scrollbar-track { margin: 10px 2px; background: rgba(16, 40, 76, .08); border-radius: 999px; }
+.content-area.ai-chat-active::-webkit-scrollbar-thumb { min-height: 36px; background: linear-gradient(180deg, color-mix(in srgb, var(--ai-chat-scroll) 72%, white), var(--ai-chat-scroll)); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+.content-area.ai-chat-active::-webkit-scrollbar-button { display: none; }
+
 /* ============================================================================
    REPORTS PAGE — KPI Cards + Data Table
    ============================================================================ */
@@ -2637,6 +2647,14 @@ input, textarea, [contenteditable="true"] {
 
 .dt-toolbar-filters {
   align-items: flex-end;
+}
+
+.dt-toolbar-filters .btn-excel-icon,
+.dt-toolbar-filters > .btn-refresh {
+  margin-left: auto;
+}
+.dt-toolbar-filters .btn-excel-icon ~ .btn-refresh {
+  margin-left: 0;
 }
 
 .dt-toolbar-bottom {
@@ -3750,6 +3768,8 @@ mark.dt-highlight {
 .home-workspace-text.workspace-color-4 { color: #8b5cf6; }
 .home-workspace-text.workspace-color-5 { color: #db2777; }
 .home-workspace-text.workspace-color-6 { color: #ea580c; }
+.home-workspace-text.workspace-color-green { color: #123e91; }
+.home-title-cursor { display: none; }
 .home-title-cursor {
   display: inline-block;
   width: 3px;
@@ -3984,6 +4004,86 @@ mark.dt-highlight {
   .home-hero-eyebrow { font-size: 30px; }
   .home-welcome-card { flex-direction: column; padding: 26px; }
   .home-welcome-corner { width: 16px; height: 16px; }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Home hero — floating "AI News" headline                                */
+/* Fills the open space on the right side of the hero with large,         */
+/* borderless animated text (no card/box) that cycles between two lines.  */
+/* ---------------------------------------------------------------------- */
+.home-ai-ticker {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  right: 60px;
+  margin: auto 0;
+  width: 430px;
+  height: fit-content;
+  text-align: right;
+  animation: homeAiFloat 4.5s ease-in-out infinite;
+  animation-delay: 1.7s;
+}
+
+@keyframes homeAiFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+.home-ai-ticker-text {
+  min-height: 168px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: clamp(30px, 3.4vw, 44px);
+  line-height: 1.24;
+  letter-spacing: .1px;
+  color: #f6e3ba;
+  text-shadow:
+    0 1px 3px rgba(53, 32, 6, .55),
+    0 3px 14px rgba(53, 32, 6, .4),
+    0 10px 30px rgba(53, 32, 6, .3);
+}
+
+.home-ai-ticker-rule {
+  display: block;
+  margin: 16px 0 0 auto;
+  width: 88px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold), var(--gold-dark));
+  background-size: 200% 100%;
+  animation: homeAiRuleShift 3.5s ease-in-out infinite;
+}
+
+@keyframes homeAiRuleShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+.home-ai-ticker-cursor {
+  display: inline-block;
+  width: 4px;
+  height: .8em;
+  background: #f6e3ba;
+  margin-left: 3px;
+  vertical-align: -.05em;
+  animation: homeCursorBlink .9s step-end infinite;
+}
+
+.home-ai-ticker-text .home-ai-ticker-dots span {
+  display: inline-block;
+  animation: homeAiDotsBlink 1.2s infinite;
+}
+.home-ai-ticker-text .home-ai-ticker-dots span:nth-child(2) { animation-delay: .2s; }
+.home-ai-ticker-text .home-ai-ticker-dots span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes homeAiDotsBlink {
+  0%, 80%, 100% { opacity: .15; }
+  40%           { opacity: 1; }
+}
+
+@media (max-width: 1320px) {
+  .home-ai-ticker { display: none; }
 }
 
 /* =============================================================================
@@ -4489,6 +4589,58 @@ select.po-input {
 .topbar-calendar-btn:focus-visible,
 .topbar-notif-btn:focus-visible { outline: 2px solid rgba(244, 201, 93, .75); outline-offset: 3px; }
 
+/* Keep the three AI launchers visually consistent while preserving each
+   assistant's own accent colour. */
+.topbar-ai-btn,
+.topbar-bai-btn,
+.topbar-trio-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #10284c;
+  animation: topbar-ai-pulse 2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.topbar-ai-btn { --ai-pulse-color: #3b9eff; color: #3b9eff; }
+.topbar-bai-btn { --ai-pulse-color: #43d17c; color: #43d17c; }
+.topbar-trio-btn { --ai-pulse-color: #a78bfa; color: #a78bfa !important; }
+
+.topbar-calendar-btn.topbar-ai-btn:hover,
+.topbar-calendar-btn.topbar-ai-btn:focus-visible { color: #3b9eff; }
+.topbar-calendar-btn.topbar-bai-btn:hover,
+.topbar-calendar-btn.topbar-bai-btn:focus-visible { color: #43d17c; }
+.topbar-calendar-btn.topbar-trio-btn:hover,
+.topbar-calendar-btn.topbar-trio-btn:focus-visible { color: #a78bfa !important; }
+
+.topbar-ai-btn .material-icons-round,
+.topbar-bai-btn svg,
+.topbar-trio-btn svg {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 22px !important;
+  display: block;
+}
+
+@keyframes topbar-ai-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 6px 6px 13px rgba(1, 12, 31, .48), -4px -4px 10px rgba(63, 104, 151, .18), inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 0 color-mix(in srgb, var(--ai-pulse-color) 0%, transparent);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 6px 6px 13px rgba(1, 12, 31, .48), -4px -4px 10px rgba(63, 104, 151, .18), inset 0 1px 0 rgba(255,255,255,.05), 0 0 15px 3px color-mix(in srgb, var(--ai-pulse-color) 52%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-ai-btn,
+  .topbar-bai-btn,
+  .topbar-trio-btn { animation: none; }
+}
+
 .topbar-calendar,
 .topbar-notif-panel {
   border: 0;
@@ -4834,3 +4986,710 @@ select.po-input {
     0 0 10px rgba(201,162,39,.3);
 }
 .nav-item[data-page="settings"].active .nav-icon { color: #e8c766; }
+
+/* Batch Analysis — shared Google Drive Excel table */
+.batch-analysis-table-card { margin-top: 16px; }
+.batch-analysis-table th { white-space: nowrap; }
+.batch-analysis-table td {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 260px;
+}
+
+/* ==========================================================================
+   Batch Details & Excel Upload Styles
+   ========================================================================== */
+.batch-upload-card {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+.batch-upload-dropzone {
+  border: 2px dashed var(--primary, #09428d);
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--card-bg, #ffffff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.batch-upload-dropzone:hover,
+.batch-upload-dropzone.dragover {
+  border-color: var(--primary-dark, #083e85);
+  background: var(--primary-light, #e8f0fe);
+  box-shadow: 0 6px 18px rgba(9, 66, 141, 0.15);
+}
+.upload-icon {
+  font-size: 48px;
+  color: var(--primary, #09428d);
+  margin-bottom: 8px;
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1), color 0.25s ease;
+}
+.batch-upload-dropzone:hover .upload-icon {
+  transform: translateY(-4px) scale(1.08);
+  color: var(--primary-dark, #083e85);
+}
+.upload-text-primary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+}
+.upload-text-secondary {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+.batch-file-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--primary-light, #e8f0fe);
+  border: 1px solid rgba(9, 66, 141, 0.18);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 14px;
+}
+.batch-file-status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.batch-file-status-info > .material-icons-round {
+  font-size: 26px;
+  color: var(--primary, #09428d);
+  flex-shrink: 0;
+}
+.batch-file-status-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-file-status-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.batch-file-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn-refresh-danger {
+  background: #dc2626;
+}
+.btn-refresh-danger:hover {
+  background: #b91c1c;
+  box-shadow: 0 4px 12px rgba(220,38,38,.30);
+}
+.btn-save-drive {
+  background: #16a34a;
+}
+.btn-save-drive:hover {
+  background: #15803d;
+  box-shadow: 0 4px 12px rgba(22,163,74,.30);
+}
+.btn-save-drive:disabled {
+  opacity: .75;
+  cursor: not-allowed;
+}
+.btn-save-drive:disabled .material-icons-round {
+  animation: spin 1s linear infinite;
+}
+@media (max-width: 600px) {
+  .batch-file-status-bar { align-items: flex-start; flex-direction: column; }
+  .batch-file-status-actions { width: 100%; justify-content: flex-end; }
+}
+
+/* ==========================================================================
+   Batch Analysis — Premium Standard Theme
+   Scoped to #page-batch-analysis. Uses the app's standard navy-blue
+   palette with refined gradients, subtle micro-animations, and polished
+   surfaces — consistent with the rest of the app while feeling elevated.
+   ========================================================================== */
+
+/* ── Header icon — deep navy gradient badge ─────────────────────────────── */
+#page-batch-analysis .reports-header-icon {
+  background: linear-gradient(135deg, #0b2a5e 0%, #09428d 60%, #1565c0 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(9, 66, 141, .35), 0 2px 6px rgba(0,0,0,.12);
+  transition: box-shadow .3s ease, transform .3s ease;
+}
+#page-batch-analysis .reports-header-icon:hover {
+  box-shadow: 0 8px 26px rgba(9, 66, 141, .45), 0 3px 8px rgba(0,0,0,.15);
+  transform: translateY(-1px);
+}
+
+/* ── Upload card — Light Green Neomorphism UI ───────────────────────────── */
+#page-batch-analysis .batch-upload-card {
+  background: #e3f2e6;
+  border: none;
+  border-radius: 20px;
+  box-shadow:
+    8px 8px 18px #b9d9c2,
+   -8px -8px 18px #ffffff;
+  padding: 0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+#page-batch-analysis .batch-upload-card::before { display: none; }
+#page-batch-analysis .batch-upload-card::after  { display: none; }
+
+#page-batch-analysis .batch-upload-dropzone {
+  border: none;
+  border-radius: 20px;
+  background: #deeee1;
+  box-shadow:
+    inset 5px 5px 10px #b2d4bc,
+    inset -5px -5px 10px #ffffff;
+  padding: 36px 20px;
+  transition: box-shadow .25s ease, background-color .25s ease;
+}
+#page-batch-analysis .batch-upload-card:hover,
+#page-batch-analysis .batch-upload-dropzone:hover,
+#page-batch-analysis .batch-upload-dropzone.dragover {
+  background: #d9ebe0;
+  border: none;
+  box-shadow:
+    inset 6px 6px 12px #a8cbb2,
+    inset -6px -6px 12px #ffffff;
+  transform: none;
+}
+
+/* Upload icon — always blinks, deepens on hover */
+@keyframes ba-icon-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .5; transform: scale(.92); }
+}
+#page-batch-analysis .upload-icon {
+  color: #16a34a;
+  animation: ba-icon-blink 1.8s ease-in-out infinite;
+  transition: color .25s ease;
+}
+#page-batch-analysis .batch-upload-dropzone:hover .upload-icon {
+  color: #15803d;
+  animation: ba-icon-blink 1.4s ease-in-out infinite;
+}
+#page-batch-analysis .upload-text-primary {
+  color: #1b432c;
+  font-weight: 600;
+}
+#page-batch-analysis .upload-text-secondary {
+  color: #436d54;
+}
+
+/* ── File status bar — Neomorphic light green inset ──────────────────────── */
+#page-batch-analysis .batch-file-status-bar {
+  background: #e3f2e6;
+  border: none;
+  border-radius: 14px;
+  box-shadow:
+    inset 4px 4px 8px #b9d9c2,
+    inset -4px -4px 8px #ffffff;
+}
+#page-batch-analysis .batch-file-status-info > .material-icons-round {
+  color: #16a34a;
+}
+#page-batch-analysis .batch-file-status-name {
+  color: #1b432c;
+}
+#page-batch-analysis .batch-file-status-meta {
+  color: #436d54;
+}
+
+/* ── Save to Drive Password Modal ───────────────────────────────────────── */
+.ba-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: ba-fade-in 0.2s ease-out;
+}
+@keyframes ba-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ba-modal-card {
+  background: #e3f2e6;
+  border-radius: 20px;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.22),
+    8px 8px 18px #b9d9c2,
+   -8px -8px 18px #ffffff;
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  position: relative;
+  animation: ba-pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes ba-pop-in {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ba-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.ba-modal-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #d1ead7;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: inset 2px 2px 4px #b9d9c2, inset -2px -2px 4px #ffffff;
+}
+.ba-modal-icon .material-icons-round { font-size: 22px; }
+.ba-modal-title-wrap h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1b432c;
+  margin: 0 0 2px 0;
+}
+.ba-modal-title-wrap p {
+  font-size: 12px;
+  color: #436d54;
+  margin: 0;
+}
+.ba-modal-close {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+.ba-modal-close:hover {
+  background: rgba(0,0,0,0.06);
+  color: #1b432c;
+}
+
+.ba-modal-body {
+  margin-bottom: 22px;
+}
+.ba-input-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1b432c;
+  margin-bottom: 6px;
+}
+.ba-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e3f2e6;
+  border-radius: 12px;
+  box-shadow: inset 4px 4px 8px #b9d9c2, inset -4px -4px 8px #ffffff;
+  padding: 0 12px;
+  height: 46px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+.ba-input-wrap.is-invalid {
+  box-shadow: inset 2px 2px 5px rgba(220,38,38,0.25), inset -2px -2px 5px #ffffff;
+  border: 1.5px solid #dc2626;
+  animation: ba-shake 0.35s ease;
+}
+@keyframes ba-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.ba-input-icon {
+  color: #16a34a;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+#ba-password-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1b432c;
+  letter-spacing: 0.5px;
+}
+.ba-toggle-pw {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.2s ease;
+}
+.ba-toggle-pw:hover { color: #1b432c; }
+
+.ba-modal-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.ba-modal-error .material-icons-round { font-size: 16px; }
+
+.ba-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn-modal-cancel {
+  background: #cbd5e1 !important;
+  color: #334155 !important;
+}
+.btn-modal-cancel:hover {
+  background: #94a3b8 !important;
+  color: #0f172a !important;
+}
+.btn-modal-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Buttons — standard filled pills with micro-animations ──────────────── */
+#page-batch-analysis .btn-refresh {
+  background: var(--primary, #09428d);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 2px 8px rgba(9, 66, 141, .22);
+  transition: all .22s cubic-bezier(.4, 0, .2, 1);
+}
+#page-batch-analysis .btn-refresh:hover {
+  background: var(--primary-dark, #083e85);
+  box-shadow: 0 6px 18px rgba(9, 66, 141, .32);
+  transform: translateY(-1px);
+}
+#page-batch-analysis .btn-refresh:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(9, 66, 141, .18);
+}
+
+/* Save to Drive — green accent */
+#page-batch-analysis .btn-save-drive {
+  background: #16a34a;
+  color: #ffffff;
+}
+#page-batch-analysis .btn-save-drive:hover {
+  background: #15803d;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, .32);
+}
+#page-batch-analysis .btn-save-drive:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Clear — red/danger accent */
+#page-batch-analysis .btn-refresh-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+#page-batch-analysis .btn-refresh-danger:hover {
+  background: #b91c1c;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, .32);
+}
+
+/* ── Excel download button — standard bordered icon ──────────────────────── */
+#page-batch-analysis .btn-excel-icon {
+  background: var(--card-bg, #ffffff);
+  border: 1.5px solid var(--border, #e2e8f0);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  transition: all .22s ease;
+}
+#page-batch-analysis .btn-excel-icon:hover {
+  border-color: #1D6F42;
+  background: #f0faf4;
+  box-shadow: 0 4px 14px rgba(29, 111, 66, .18);
+  transform: translateY(-1px);
+}
+#page-batch-analysis .btn-excel-icon:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+/* ── Search box — standard bordered input ────────────────────────────────── */
+#page-batch-analysis .dt-search-wrap {
+  background: var(--card-bg, #ffffff);
+  border: 1.5px solid var(--border, #e2e8f0);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+#page-batch-analysis .dt-search-wrap:focus-within {
+  border-color: var(--primary, #09428d);
+  box-shadow: 0 0 0 3px rgba(9, 66, 141, .12);
+}
+#page-batch-analysis .dt-search-icon { color: var(--primary, #09428d); }
+#page-batch-analysis .dt-search-clear:hover { color: #e53935; }
+
+/* ── Per-column filter inputs — standard bordered ────────────────────────── */
+#page-batch-analysis .dt-col-filter {
+  background: #ffffff;
+  border: 1.5px solid #1e3d75;
+  border-radius: 4px;
+}
+#page-batch-analysis .dt-col-filter:focus {
+  border-color: var(--primary, #09428d);
+  background: #f0f7ff;
+  box-shadow: 0 0 0 2.5px rgba(9, 66, 141, .15);
+}
+
+/* ── Page-size select — standard ─────────────────────────────────────────── */
+#page-batch-analysis .dt-page-size-select {
+  border: 1.5px solid var(--border, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-main, #1e293b);
+}
+#page-batch-analysis .dt-page-size-select:focus {
+  border-color: var(--primary, #09428d);
+}
+#page-batch-analysis .dt-page-size-label { color: var(--text-sub, #64748b); }
+
+/* ── Count badge — standard primary pill ─────────────────────────────────── */
+#page-batch-analysis .dt-count-badge {
+  background: var(--primary-light, #e8f0fe);
+  color: var(--primary, #09428d);
+}
+
+/* ── Table shell ─────────────────────────────────────────────────────────── */
+#page-batch-analysis .dt-table {
+  border-color: #132947;
+}
+#page-batch-analysis .dt-table-wrap::-webkit-scrollbar-track { background: #f1f5f9; }
+#page-batch-analysis .dt-table-wrap::-webkit-scrollbar-thumb { background: #132947; border-radius: 4px; }
+
+/* ── Table header — standard dark navy ───────────────────────────────────── */
+#page-batch-analysis .dt-table thead {
+  background: #091729;
+}
+#page-batch-analysis .dt-th {
+  color: #e2e8f0;
+  border-color: #132947;
+}
+#page-batch-analysis .dt-th-num {
+  background: #051220;
+  color: #64748b;
+  border-color: #132947;
+}
+#page-batch-analysis .dt-th-sortable:hover { background: #132947; }
+#page-batch-analysis .dt-th-sorted { background: #083e85 !important; color: #ffffff; }
+
+/* ── Per-column filter row — standard white ──────────────────────────────── */
+#page-batch-analysis .dt-filter-row { background: #ffffff; }
+#page-batch-analysis .dt-filter-cell,
+#page-batch-analysis .dt-filter-cell-num {
+  background: #ffffff;
+  border-bottom-color: #132947;
+}
+
+/* ── Body rows — standard white/light-blue zebra ─────────────────────────── */
+#page-batch-analysis .dt-tr-even { background: #ffffff; }
+#page-batch-analysis .dt-tr-odd  { background: #f5f8ff; }
+#page-batch-analysis .dt-table tbody tr:hover { background: #dbeafe !important; }
+#page-batch-analysis .dt-td {
+  border-color: #132947;
+  color: var(--text-main, #1e293b);
+}
+#page-batch-analysis .dt-td-num { color: #64748b; }
+#page-batch-analysis .dt-highlight { background: #fde68a; color: #78350f; }
+
+/* ── Pagination — standard bordered buttons ──────────────────────────────── */
+#page-batch-analysis .dt-page-btn {
+  border: 1.5px solid var(--border, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  color: var(--text-sub, #64748b);
+  transition: all .2s ease;
+}
+#page-batch-analysis .dt-page-btn:hover:not(.dt-page-btn-disabled):not(.dt-page-btn-active) {
+  border-color: var(--primary, #09428d);
+  color: var(--primary, #09428d);
+  background: var(--primary-light, #e8f0fe);
+  transform: translateY(-1px);
+}
+#page-batch-analysis .dt-page-btn-active {
+  background: var(--primary, #09428d);
+  border-color: var(--primary, #09428d);
+  color: #ffffff;
+}
+#page-batch-analysis .dt-page-btn-disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+/* ── Footer — standard light background ──────────────────────────────────── */
+#page-batch-analysis .dt-footer {
+  background: #fafbfc;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+/* ── Toolbar — standard light background ─────────────────────────────────── */
+#page-batch-analysis .dt-toolbar {
+  background: #fafbfc;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+/* ── Batch Analysis Stylish Animated Loader & Empty State ────────────────── */
+#page-batch-analysis .dt-empty-state {
+  min-height: 240px;
+  padding: 30px 20px;
+}
+
+.ba-loader-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  animation: ba-fade-in 0.3s ease;
+}
+
+.ba-loader-ring {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  padding: 4px;
+  background: conic-gradient(from 0deg, transparent 0%, #16a34a 60%, #86efac 100%);
+  animation: ba-spin-full 1.2s linear infinite;
+  box-shadow: 0 0 20px rgba(22, 163, 74, 0.22);
+}
+
+.ba-loader-icon-wrap {
+  width: 100%;
+  height: 100%;
+  background: #e3f2e6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
+  box-shadow: inset 3px 3px 6px #b9d9c2, inset -3px -3px 6px #ffffff;
+  animation: ba-spin-reverse 1.2s linear infinite;
+}
+
+.ba-loader-spin-icon {
+  font-size: 32px;
+}
+
+@keyframes ba-spin-full {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ba-spin-reverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
+.ba-loader-text-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ba-loader-msg {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1b432c;
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+.ba-loader-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ba-loader-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+  animation: ba-dot-bounce 1.4s ease-in-out infinite;
+}
+
+.ba-loader-dots span:nth-child(1) { animation-delay: 0s; }
+.ba-loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ba-loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes ba-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40%           { transform: scale(1.3); opacity: 1; }
+}
+
+.ba-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: ba-fade-in 0.3s ease;
+}
+
+.ba-empty-icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  background: #e3f2e6;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 6px 6px 14px #bddcc6, -6px -6px 14px #ffffff;
+}
+
+.ba-empty-icon-wrap .material-icons-round {
+  font-size: 30px;
+}
+
+.ba-empty-msg {
+  font-size: 14px;
+  font-weight: 500;
+  color: #436d54;
+  margin: 0;
+  text-align: center;
+  max-width: 360px;
+}
